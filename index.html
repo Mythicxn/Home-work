@@ -326,7 +326,6 @@ async function aiCall(system, user, o) {
   const provider = o.provider || "gemini";
   const primaryModel = o.model || AI_DEF[provider].model;
   
-  // Tối ưu các model dòng Lite lên đầu để không bị đụng trần Quota và tránh lỗi High Demand
   const fallbackList = provider === "gemini" 
     ? [primaryModel, "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-3.6-flash"]
     : [primaryModel];
@@ -350,7 +349,6 @@ async function aiCall(system, user, o) {
         return d.choices[0].message.content;
       }
 
-      // Xử lý gọi Gemini API
       r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { 
         method: "POST", 
         headers: { ...J, "x-goog-api-key": o.key }, 
@@ -376,7 +374,6 @@ async function aiCall(system, user, o) {
       lastError = err;
       const errMsg = String(err.message || err).toLowerCase();
       if (errMsg.includes("quota") || errMsg.includes("429") || errMsg.includes("demand") || errMsg.includes("limit")) {
-        console.warn(`Model ${model} bị bận/hết quota, thử model tiếp theo...`);
         continue;
       }
       throw err;
