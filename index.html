@@ -62,6 +62,7 @@ td:nth-child(3){white-space:normal}
 .thumb{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px dashed var(--bd)}
 .thumb img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--bd);background:#fff}
 pre{background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto;font-size:.85rem}
+.ai{background:var(--bg);border-left:4px solid var(--pr);border-radius:8px;padding:10px 14px;margin:10px 0;line-height:1.7}
 @media(max-width:720px){#app{grid-template-columns:1fr}.st{flex-direction:column;align-items:flex-start}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -78,8 +79,8 @@ pre{background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto;font-siz
   <div class="card">
     <img class="logo-lg" id="lg2" alt="Logo lớp 11B2">
     <h2>Nhập tên để vào làm bài</h2>
-    <p class="mu">Nhập đúng họ tên của bạn, ví dụ: Bảo Khang.</p>
-    <input type="text" id="nm" placeholder="Ví dụ: Bảo Khang" autocomplete="off">
+    <p class="mu">Nhập đúng họ tên của bạn.</p>
+    <input type="text" id="nm" placeholder="Nhập họ tên của bạn" autocomplete="off">
     <input type="password" id="pw" placeholder="Mật khẩu quản trị" autocomplete="current-password" hidden style="width:100%;padding:9px 11px;margin-top:8px;border:1px solid var(--bd);border-radius:8px;background:var(--card)">
     <p class="mu"><small>Lưu ý: người quản trị có thể biết bạn đang làm bài nào.</small></p>
     <p id="err" role="alert"></p>
@@ -146,6 +147,7 @@ let store, cloud = false;
     cloud = true;
     store = {
       sub: (c, cb, er) => fs.collection(c).onSnapshot(s => cb(s.docs.map(d => ({ ...d.data(), id: d.id }))), er || (e => console.error(c, e))),
+      get: (c, id) => fs.collection(c).doc(id).get().then(d => d.exists ? { ...d.data(), id: d.id } : null),
       put: (c, o) => fs.collection(c).doc(o.id).set(o),
       del: (c, id) => fs.collection(c).doc(id).delete()
     };
@@ -155,6 +157,7 @@ let store, cloud = false;
     const set = (c, a) => { localStorage.setItem("lh_" + c, JSON.stringify(a)); (subs[c] || []).forEach(f => f(get(c))); };
     store = {
       sub: (c, cb) => { (subs[c] = subs[c] || []).push(cb); cb(get(c)); },
+      get: (c, id) => Promise.resolve(get(c).find(x => x.id === id) || null),
       put: (c, o) => { set(c, get(c).filter(x => x.id !== o.id).concat(o)); return Promise.resolve(); },
       del: (c, id) => { set(c, get(c).filter(x => x.id !== id)); return Promise.resolve(); }
     };
@@ -251,7 +254,7 @@ const IMG_LIMIT = 900000;
 function imgBytes(text) { return tokensOf(text).reduce((n, id) => n + ((S.quiz.imgs[ikey(id)] || "").length), 0); }
 
 /* ===================== TRẠNG THÁI ===================== */
-const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "" };
+const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", ai: null, aiCache: {}, aiBusy: {} };
 
 const isAdminName = v => norm(v) === norm(CONFIG.ADMIN);
 async function login() {
@@ -292,9 +295,13 @@ function start() {
     });
     store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => (x.time || 0) - (y.time || 0)); renderSide(); if (S.view === "list") renderMain(); });
     store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); });
+    store.sub("settings", a => {
+      S.ai = a.find(x => x.id === "ai") || null;
+      if (S.view === "aiset" && $("ast")) $("ast").innerHTML = aiStatus(); else if (S.view === "review") renderMain();
+    }, e => console.warn("settings", e));
     if (S.admin) {
       store.sub("live", a => { S.live = a; S.liveErr = ""; renderSide(); if (S.view === "live") renderMain(); }, e => { S.liveErr = e.message || String(e); if (S.view === "live") renderMain(); });
-      setInterval(() => { renderSide(); if (S.view === "live") renderMain(); }, 60000);
+      setInterval(() => { renderSide(); if (S.view === "live") renderMain(); }, 30000);
     }
   }
   go("home");
@@ -302,8 +309,10 @@ function start() {
 
 
 /* ===================== AI ĐANG LÀM BÀI ===================== */
-// Chỉ ghi lên Firebase khi học sinh bắt đầu / xong / thoát bài (không gửi tín hiệu liên tục).
-const LIVE_TTL = 3 * 60 * 60 * 1000; // quá 3 giờ không đổi trạng thái thì coi như đã nghỉ (phòng khi tắt tab đột ngột)
+// Học sinh đang ở trong bài thì báo "còn đây" mỗi 2 phút. Nộp bài = xóa ngay.
+// Thoát giữa chừng / tắt tab / mất mạng: không báo nữa, quản trị vẫn thấy tối đa LIVE_TTL (5 phút) kể từ tín hiệu cuối rồi tự ẩn.
+const LIVE_TTL = 5 * 60 * 1000;
+const LIVE_BEAT = 2 * 60 * 1000;
 const LIVE_IDLE = { state: "idle", quiz: null, subject: null, since: null };
 const LIVE = { id: null, d: { state: "idle", quiz: null, subject: null, since: null } };
 function liveSend(patch) {
@@ -311,29 +320,140 @@ function liveSend(patch) {
   Object.assign(LIVE.d, patch, { id: LIVE.id, name: S.user, last: Date.now() });
   try { Promise.resolve(store.put("live", { ...LIVE.d })).catch(() => {}); } catch (e) {}
 }
+function liveBeat() { if (S.view === "take" && LIVE.d.state === "doing") liveSend({}); }
 function liveInit() {
   LIVE.id = "u_" + norm(S.user).replace(/\s+/g, "_");
-  window.addEventListener("pagehide", () => { if (LIVE.d.state === "doing") liveSend(LIVE_IDLE); });
+  setInterval(liveBeat, LIVE_BEAT);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) liveBeat(); });
 }
-function liveActive() { const now = Date.now(); return S.live.filter(x => x.state === "doing" && now - (x.since || x.last || 0) < LIVE_TTL); }
+function liveActive() { const now = Date.now(); return S.live.filter(x => x.state === "doing" && now - (x.last || 0) < LIVE_TTL); }
 function renderLive() {
   const act = liveActive(), doing = new Map(act.map(x => [x.name, x]));
   const rows = STUDENTS.slice().sort((a, b) => (doing.has(b) ? 1 : 0) - (doing.has(a) ? 1 : 0) || a.localeCompare(b, "vi")).map(n => {
     const x = doing.get(n);
-    return x
-      ? `<tr><td><span class="tag-ok">✓</span></td><td><b>${esc(n)}</b></td><td>${esc(x.quiz || "")}${x.subject ? ` <small class="mu">· ${esc(x.subject)}</small>` : ""}</td></tr>`
-      : `<tr><td class="mu">–</td><td class="mu">${esc(n)}</td><td></td></tr>`;
+    if (x) {
+      const age = Date.now() - (x.last || 0), fresh = age < LIVE_BEAT * 1.5, left = Math.max(1, Math.ceil((LIVE_TTL - age) / 60000));
+      return `<tr><td>${fresh ? `<span class="tag-ok">✓</span>` : `<span title="Đã thoát hoặc mất kết nối" style="color:#e0a100;font-weight:700">⏳</span>`}</td><td><b>${esc(n)}</b></td><td>${esc(x.quiz || "")}${x.subject ? ` <small class="mu">· ${esc(x.subject)}</small>` : ""}${fresh ? "" : ` <small class="mu">· đã thoát/mất kết nối, tự ẩn sau ~${left} phút</small>`}</td></tr>`;
+    }
+    return `<tr><td class="mu">–</td><td class="mu">${esc(n)}</td><td></td></tr>`;
   }).join("");
   return `<div class="row sp"><h2>Ai đang làm bài</h2><div class="mu">Đang làm: <b>${act.length}</b>/${STUDENTS.length}</div></div>` +
     (S.liveErr ? `<div class="card"><p class="tag-no">Không đọc được dữ liệu: ${esc(S.liveErr)}</p><p class="mu">Hãy thêm <code>live</code> vào Firestore Rules rồi Publish.</p></div>` : "") +
     (!cloud ? `<div class="card"><p class="tag-no">Đang ở chế độ thử (chưa có Firebase): chỉ thấy người dùng trên cùng máy này.</p></div>` : "") +
     `<div class="card"><div class="tw"><table><tr><th></th><th>Họ tên</th><th>Bài đang làm</th></tr>${rows}</table></div>
-    <p class="mu">✓ = đang làm bài. Học sinh tắt trình duyệt đột ngột có thể vẫn hiện ✓ tối đa 3 giờ.</p></div>`;
+    <p class="mu">✓ = đang làm bài. ⏳ = đã thoát hoặc tắt trình duyệt giữa chừng, vẫn hiện tối đa 5 phút rồi tự ẩn. Nộp bài xong thì biến mất ngay.</p></div>`;
+}
+
+/* ===================== AI PHÂN TÍCH ĐÁP ÁN ===================== */
+// Key API do quản trị (dev) nhập ở mục "⚙ Cài đặt AI", lưu trong Firestore: settings/ai (cấu hình) + secrets/ai (key).
+const AI_DEF = { gemini: { name: "Google Gemini", model: "gemini-2.5-flash" }, openai: { name: "OpenAI", model: "gpt-4o-mini" }, claude: { name: "Anthropic Claude", model: "claude-haiku-5-5" } };
+const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng.";
+const aiReady = () => !!(S.ai && S.ai.enabled && S.ai.hasKey && AI_DEF[S.ai.provider]);
+const aiMd = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ").replace(/\n/g, "<br>");
+const plain = t => String(t).replace(IMG_RE, "[hình minh họa - AI không xem được]");
+const qOk = (q, i) => q.sts.length ? q.sts.every(s => S.A[i + s.k] === s.v) : S.A[i] === q.ans;
+function aiQText(q, i) {
+  const A = S.A; let t = `Câu ${i + 1}: ${plain(q.q)}\n`;
+  if (q.sts.length) q.sts.forEach(s => { const a = A[i + s.k]; t += `${s.k}) ${plain(s.t)} | Đáp án đề: ${s.v ? "Đúng" : "Sai"} | HS chọn: ${a === undefined ? "bỏ trống" : a ? "Đúng" : "Sai"}\n`; });
+  else { q.opts.forEach(o => t += `${o.k}. ${plain(o.t)}\n`); t += `Đáp án đề: ${q.ans} | HS chọn: ${A[i] || "bỏ trống"}\n`; }
+  return t;
+}
+async function aiCall(system, user, o) {
+  if (!o) { const sec = await store.get("secrets", "ai"); o = { provider: S.ai.provider, model: S.ai.model, key: sec && sec.key }; }
+  if (!o.key) throw new Error("Chưa có key API.");
+  const model = o.model || AI_DEF[o.provider].model, J = { "Content-Type": "application/json" };
+  let r, d;
+  if (o.provider === "openai") {
+    r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { ...J, Authorization: "Bearer " + o.key }, body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }] }) });
+    d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+    return d.choices[0].message.content;
+  }
+  if (o.provider === "claude") {
+    r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { ...J, "x-api-key": o.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: 2000, system, messages: [{ role: "user", content: user }] }) });
+    d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+    return d.content.map(c => c.text || "").join("");
+  }
+  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature: .4 } }) });
+  d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+  const c = (d.candidates || [])[0] && d.candidates[0].content;
+  if (!c || !c.parts) throw new Error("AI không trả về nội dung.");
+  return c.parts.map(x => x.text || "").join("");
+}
+async function aiRun(key, build) {
+  if (S.aiBusy[key] || !aiReady()) return;
+  S.aiBusy[key] = 1; delete S.aiCache[key]; if (S.view === "review") renderMain();
+  const quiz = S.quiz;
+  try { const t = await aiCall(AI_SYS, build()); if (S.quiz === quiz) S.aiCache[key] = { t }; }
+  catch (e) { if (S.quiz === quiz) S.aiCache[key] = { e: e.message || String(e) }; }
+  delete S.aiBusy[key]; if (S.view === "review") renderMain();
+}
+function aiAll() {
+  aiRun("all", () => {
+    const wrong = S.qs.map((q, i) => [q, i]).filter(([q, i]) => !qOk(q, i)), { score, right } = grade(S.qs, S.A);
+    return `Học sinh vừa làm bài "${S.quiz.title}": ${score}/10, đúng hoàn toàn ${right}/${S.qs.length} câu.\n` + (wrong.length
+      ? `Các câu chưa đúng:\n\n${wrong.map(([q, i]) => aiQText(q, i)).join("\n")}\nHãy: 1) nhận xét tổng quan (2-3 câu); 2) với từng câu sai: vì sao đáp án đề đúng và học sinh có thể nhầm ở đâu; 3) chỉ ra phần kiến thức cần ôn lại và gợi ý cách ôn ngắn gọn.`
+      : `Học sinh làm đúng hết. Hãy khen ngắn gọn và gợi ý 1-2 hướng mở rộng kiến thức.`);
+  });
+}
+function aiOne(i) { aiRun("q" + i, () => `Học sinh làm bài "${S.quiz.title}".\n\n${aiQText(S.qs[i], i)}\nHãy giải thích ngắn gọn vì sao đáp án đề đúng, vì sao lựa chọn của học sinh chưa đúng, kèm một mẹo nhớ.`); }
+function aiOut(key) {
+  if (S.aiBusy[key]) return `<p class="mu">🤖 AI đang phân tích…</p>`;
+  const c = S.aiCache[key]; if (!c) return "";
+  return c.e ? `<p class="tag-no">Lỗi AI: ${esc(c.e)}</p>` : `<div class="ai">${aiMd(c.t)}</div>`;
+}
+function aiBtnQ(i) { return `<div style="margin-top:8px"><button class="g" onclick="aiOne(${i})" ${S.aiBusy["q" + i] ? "disabled" : ""}>🤖 Giải thích câu này</button>${aiOut("q" + i)}</div>`; }
+function aiBlock() {
+  if (aiReady()) return `<div style="margin-top:12px"><button onclick="aiAll()" ${S.aiBusy.all ? "disabled" : ""}>🤖 Phân tích bài làm bằng AI</button>${aiOut("all")}</div>`;
+  return S.admin ? `<p class="mu">AI chưa bật. Vào “⚙ Cài đặt AI” để nhập key.</p>` : "";
+}
+function aiStatus() {
+  const c = S.ai || {};
+  return aiReady() ? `<span class="tag-ok">Đang bật</span> · ${esc(AI_DEF[c.provider].name)} · key …${esc(c.last4 || "")}` : c.hasKey ? `<span class="tag-no">Đã có key nhưng đang tắt</span>` : `<span class="tag-no">Chưa có key → học sinh chưa thấy nút AI</span>`;
+}
+function renderAiSet() {
+  const c = S.ai || {}, p = AI_DEF[c.provider] ? c.provider : "gemini";
+  return `<div class="card"><h2>⚙ Cài đặt AI (dev)</h2>
+    <p class="mu">Trạng thái: <span id="ast">${aiStatus()}</span></p>
+    <p><label>Nhà cung cấp<select id="ap" onchange="$('am').value=AI_DEF[this.value].model">${Object.entries(AI_DEF).map(([k, v]) => `<option value="${k}" ${k === p ? "selected" : ""}>${v.name}</option>`).join("")}</select></label></p>
+    <p><label>Model (sửa được nếu nhà cung cấp đổi tên model)<input type="text" id="am" value="${esc(c.model || AI_DEF[p].model)}"></label></p>
+    <p><label>API key<input type="password" id="ak" placeholder="${c.hasKey ? "Để trống = giữ key đang lưu" : "Dán API key vào đây"}" autocomplete="off"></label></p>
+    <p><label><input type="checkbox" id="ae" ${c.enabled !== false ? "checked" : ""}> Bật AI cho học sinh</label></p>
+    <p id="amsg" class="mu"></p>
+    <div class="row"><button onclick="aiSave()">Lưu</button><button class="g" onclick="aiTest()">Thử kết nối</button>${c.hasKey ? `<button class="d" onclick="aiDel()">Xóa key</button>` : ""}</div></div>
+    <div class="card mu"><b>Lưu ý bảo mật</b><br>Web chạy hoàn toàn ở trình duyệt nên khi học sinh bấm “Phân tích”, trình duyệt của em ấy phải đọc được key. Vì vậy hãy dùng key có giới hạn (ví dụ key Gemini miễn phí chưa gắn thẻ, hoặc đặt hạn mức chi tiêu thấp) và đừng dùng key chính của bạn.</div>`;
+}
+async function aiSave() {
+  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, k = $("ak").value.trim(), old = S.ai || {}, msg = $("amsg");
+  if (!k && !old.hasKey) { msg.innerHTML = `<span class="tag-no">Hãy dán API key.</span>`; return; }
+  if (!k && old.provider && old.provider !== p) { msg.innerHTML = `<span class="tag-no">Đổi nhà cung cấp thì cần dán key mới.</span>`; return; }
+  msg.textContent = "Đang lưu…";
+  const doc = { id: "ai", provider: p, model, enabled: $("ae").checked, hasKey: true, last4: k ? k.slice(-4) : (old.last4 || ""), time: Date.now() };
+  try {
+    if (k) await store.put("secrets", { id: "ai", key: k, time: Date.now() });
+    await store.put("settings", doc);
+    S.ai = doc; renderMain(); $("amsg").innerHTML = `<span class="tag-ok">Đã lưu vào database.</span>`;
+  } catch (e) { msg.innerHTML = `<span class="tag-no">Lưu thất bại: ${esc(e.message || e)}. Kiểm tra Firestore Rules cho settings và secrets.</span>`; }
+}
+async function aiTest() {
+  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, msg = $("amsg");
+  msg.textContent = "Đang thử kết nối…";
+  try {
+    let key = $("ak").value.trim();
+    if (!key) { const sec = await store.get("secrets", "ai"); key = sec && sec.key; }
+    const t = await aiCall("Trả lời đúng một từ.", "Hãy nói: OK", { provider: p, model, key });
+    msg.innerHTML = `<span class="tag-ok">Kết nối được.</span> AI trả lời: ${esc(t.slice(0, 80))}`;
+  } catch (e) { msg.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
+}
+async function aiDel() {
+  if (!confirm("Xóa key API đã lưu? Học sinh sẽ không còn thấy nút AI.")) return;
+  try {
+    const doc = { id: "ai", provider: (S.ai || {}).provider || "gemini", model: (S.ai || {}).model || "", enabled: false, hasKey: false, last4: "", time: Date.now() };
+    await store.del("secrets", "ai"); await store.put("settings", doc); S.ai = doc; renderMain();
+  } catch (e) { $("amsg").innerHTML = `<span class="tag-no">Xóa thất bại: ${esc(e.message || e)}</span>`; }
 }
 
 /* ===================== GIAO DIỆN ===================== */
 function go(v) {
-  if (!S.admin && v !== "take" && LIVE.d.state === "doing") liveSend(LIVE_IDLE);
   S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0);
 }
 function openSub(id) { S.sub = id; go("list"); }
@@ -342,7 +462,7 @@ function renderSide() {
   $("side").innerHTML = `<div class="card">
     <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
     (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${S.quizzes.filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
-    (S.admin ? `<hr><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+    (S.admin ? `<hr><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
 }
 
 function renderMain() {
@@ -373,10 +493,13 @@ function renderMain() {
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="score">${score}/10</div>
       <div class="mu">Đúng hoàn toàn ${right}/${S.qs.length} câu. ${S.admin ? "(Quản trị: kết quả không được lưu vào bảng.)" : "Kết quả đã lưu vào bảng bên dưới."}</div>
       <p><label><input type="checkbox" ${S.onlyWrong ? "checked" : ""} onchange="S.onlyWrong=this.checked;renderMain()"> Chỉ hiện câu sai</label></p>
-      <div class="row"><button onclick="take('${S.quiz.id}')">Làm lại</button><button class="g" onclick="go('list')">Về danh sách bài</button></div></div>` +
+      <div class="row"><button onclick="take('${S.quiz.id}')">Làm lại</button><button class="g" onclick="go('list')">Về danh sách bài</button></div>${aiBlock()}</div>` +
       S.qs.map((q, i) => reviewQ(q, i)).join("");
   } else if (S.view === "live") {
     m.innerHTML = renderLive();
+  } else if (S.view === "aiset") {
+    if (!S.admin) return go("home");
+    m.innerHTML = renderAiSet();
   } else if (S.view === "edit") {
     const q = S.quiz;
     m.innerHTML = `<div class="card"><h2>${q.id ? "Sửa bài" : "Thêm bài mới"}</h2>
@@ -415,7 +538,7 @@ function reviewQ(q, i) {
     }).join("") + (A[i] === undefined ? `<div class="tag-no">Bạn chưa trả lời câu này.</div>` : "");
   }
   if (S.onlyWrong && ok) return "";
-  return `<div class="card q ${ok ? "ok" : "bad"}"><b>Câu ${i + 1}.</b> ${R(q.q)} <span class="${ok ? "tag-ok" : "tag-no"}">${ok ? "Đúng" : "Sai"}</span>${body}</div>`;
+  return `<div class="card q ${ok ? "ok" : "bad"}"><b>Câu ${i + 1}.</b> ${R(q.q)} <span class="${ok ? "tag-ok" : "tag-no"}">${ok ? "Đúng" : "Sai"}</span>${body}${!ok && aiReady() ? aiBtnQ(i) : ""}</div>`;
 }
 
 function renderBoard() {
@@ -428,7 +551,7 @@ function renderBoard() {
 function take(id) {
   S.quiz = S.quizzes.find(q => q.id === id);
   if (!S.quiz) return go("list");
-  S.qs = parse(S.quiz.text).qs; S.A = {}; S.onlyWrong = false;
+  S.qs = parse(S.quiz.text).qs; S.A = {}; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
   S.view = "take"; renderSide(); renderMain(); window.scrollTo(0, 0);
   const sb = S.subjects.find(x => x.id === S.quiz.subject);
   liveSend({ state: "doing", quiz: S.quiz.title, subject: sb ? sb.name : null, since: Date.now() });
