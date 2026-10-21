@@ -1,341 +1,612 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lunar Homework</title>
-  <style>
-    :root {
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --txt: #0f172a;
-      --sub: #475569;
-      --bd: #e2e8f0;
-      --pr: #2563eb;
-      --prh: #1d4ed8;
-      --ok: #16a34a;
-      --okb: #f0fdf4;
-      --no: #dc2626;
-      --nob: #fef2f2;
-      --hd: #1e293b;
-      --hdt: #ffffff;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0f172a;
-        --card: #1e293b;
-        --txt: #f8fafc;
-        --sub: #94a3b8;
-        --bd: #334155;
-        --pr: #3b82f6;
-        --prh: #2563eb;
-        --ok: #22c55e;
-        --okb: #052e16;
-        --no: #ef4444;
-        --nob: #450a0a;
-        --hd: #020617;
-        --hdt: #f8fafc;
-      }
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background: var(--bg); color: var(--txt); line-height: 1.5; }
-    
-    /* Layout */
-    .app { display: flex; flex-direction: column; min-height: 100vh; }
-    header { background: var(--hd); color: var(--hdt); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
-    header h1 { font-size: 1.2rem; font-weight: 600; }
-    .main-layout { display: flex; flex: 1; }
-    aside { width: 260px; background: var(--card); border-right: 1px solid var(--bd); padding: 16px; flex-shrink: 0; }
-    main { flex: 1; padding: 24px; max-width: 900px; margin: 0 auto; width: 100%; }
-
-    @media (max-width: 768px) {
-      .main-layout { flex-direction: column; }
-      aside { width: 100%; border-right: none; border-bottom: 1px solid var(--bd); }
-    }
-
-    /* UI Components */
-    .btn { background: var(--pr); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s; }
-    .btn:hover { background: var(--prh); }
-    .btn-sec { background: transparent; color: var(--txt); border: 1px solid var(--bd); }
-    .btn-sec:hover { background: var(--bd); }
-    .btn-danger { background: var(--no); color: #fff; }
-    .input { width: 100%; padding: 8px 12px; border: 1px solid var(--bd); border-radius: 6px; background: var(--card); color: var(--txt); margin-bottom: 12px; }
-
-    /* Card & Quiz Elements */
-    .card { background: var(--card); border: 1px solid var(--bd); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-    .q-title { font-weight: 600; margin-bottom: 12px; }
-    .opt { display: block; padding: 10px 14px; border: 1px solid var(--bd); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
-    .opt:hover { border-color: var(--pr); }
-    .opt input { margin-right: 8px; }
-
-    /* --- Tùy chỉnh giao diện nút Đúng / Sai --- */
-    .st {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      padding: 10px 12px;
-      border-top: 1px dashed var(--bd);
-      background: var(--bg);
-      border-radius: 8px;
-      margin-bottom: 6px;
-    }
-    .st-text {
-      flex: 1;
-      font-size: 0.95rem;
-    }
-    .st-opts {
-      display: flex;
-      gap: 8px;
-    }
-    .st label {
-      margin-left: 0;
-      white-space: nowrap;
-      font-weight: 500;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--bd);
-      background: var(--card);
-      transition: all 0.2s ease;
-      user-select: none;
-    }
-    .st label:hover {
-      border-color: var(--pr);
-    }
-    .st input[type="radio"] {
-      accent-color: var(--pr);
-    }
-    .st label:has(input[value="1"]:checked) {
-      background: var(--okb);
-      border-color: var(--ok);
-      color: var(--ok);
-      font-weight: 700;
-    }
-    .st label:has(input[value="0"]:checked) {
-      background: var(--nob);
-      border-color: var(--no);
-      color: var(--no);
-      font-weight: 700;
-    }
-
-    /* AI Explanation */
-    .ai-box { background: var(--bg); border-left: 4px solid var(--pr); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 12px; font-size: 0.95rem; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lunar Homework</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eceef6;--card:#fff;--tx:#1b2040;--mu:#666c8f;--pr:#3f43a8;--moon:#f0c45a;--ok:#17874b;--okb:#dff3e7;--no:#c93030;--nob:#fce6e6;--bd:#d9dcec}
+@media(prefers-color-scheme:dark){:root{--bg:#12142a;--card:#1c1f3d;--tx:#e8e9fb;--mu:#9a9ec6;--pr:#8e92ff;--ok:#4cd387;--okb:#15382a;--no:#ff7b7b;--nob:#44202a;--bd:#30335a}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.55 "Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--tx)}
+button,input,select,textarea{font:inherit;color:inherit}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 22px;background:#1b1f4b;color:#fff}
+header h1{margin:0;font-size:1.35rem;font-weight:700;display:flex;align-items:center;gap:10px}
+.logo{width:46px;height:46px;border-radius:50%;background:#fbfdf2;object-fit:cover;box-shadow:0 0 0 2px #fff6;flex:none}
+.logo-lg{display:block;width:130px;height:130px;margin:0 auto 12px;border-radius:50%;object-fit:cover;box-shadow:0 2px 10px #0003}
+.moon{width:22px;height:22px;border-radius:50%;background:var(--moon);box-shadow:inset -7px -3px 0 0 #1b1f4b;box-shadow:inset -8px 0 0 0 #1b1f4b,0 0 0 2px var(--moon)}
+#who{font-size:.9rem;display:flex;gap:10px;align-items:center}
+button{background:var(--pr);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--moon);outline-offset:2px}
+button.g{background:transparent;color:var(--pr);border:1px solid var(--pr)}
+button.d{background:var(--no);color:#fff}
+header button{background:transparent;border:1px solid #fff8;color:#fff}
+input[type=text],select,textarea{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;background:var(--card)}
+textarea{min-height:300px;font-family:ui-monospace,Consolas,monospace;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
+#login{max-width:430px;margin:70px auto;padding:0 16px}
+#login h2{margin-top:0}
+#err{color:var(--no);min-height:1.5em;margin:8px 0 0}
+#app{display:grid;grid-template-columns:230px 1fr;gap:18px;max-width:1100px;margin:18px auto;padding:0 16px;align-items:start}
+aside .card{padding:8px}
+aside button.s{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:transparent;color:var(--tx);margin:2px 0;padding:9px 12px}
+aside button.s.on{background:var(--pr);color:#fff}
+aside small{color:inherit;opacity:.7}
+aside hr{border:0;border-top:1px solid var(--bd);margin:6px 0}
+h2,h3{margin:.2em 0 .5em}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sp{justify-content:space-between}
+.mu{color:var(--mu);font-size:.9rem}
+.op{display:block;padding:7px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer}
+.op:hover{background:var(--bg)}
+.st{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:6px 0;border-top:1px dashed var(--bd)}
+.st label{margin-left:10px;white-space:nowrap}
+.q.ok{border-left:6px solid var(--ok)}
+.q.bad{border-left:6px solid var(--no)}
+.op.right{background:var(--okb);border-color:var(--ok)}
+.op.wrong{background:var(--nob);border-color:var(--no)}
+.tag-ok{color:var(--ok);font-weight:700}.tag-no{color:var(--no);font-weight:700}
+.score{font-size:2rem;font-weight:700}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--bd);white-space:nowrap}
+td:nth-child(3){white-space:normal}
+.qi{display:block;max-width:100%;max-height:340px;margin:8px 0;border-radius:8px;border:1px solid var(--bd);background:#fff}
+.op .qi{display:inline-block;vertical-align:middle;margin:4px 0 4px 8px;max-height:200px}
+.pb{height:8px;min-width:80px;background:var(--bd);border-radius:6px;overflow:hidden}.pb i{display:block;height:100%;background:var(--ok)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:var(--mu)}.dot.on{background:var(--ok)}.dot.aw{background:#e0a100}
+.thumb{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px dashed var(--bd)}
+.thumb img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--bd);background:#fff}
+pre{background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto;font-size:.85rem}
+.ai{background:var(--bg);border-left:4px solid var(--pr);border-radius:8px;padding:10px 14px;margin:10px 0;line-height:1.7}
+@media(max-width:720px){#app{grid-template-columns:1fr}.st{flex-direction:column;align-items:flex-start}}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <h1>Lunar Homework</h1>
-      <div id="auth-status"></div>
-    </header>
-    <div class="main-layout">
-      <aside id="side-nav"></aside>
-      <main id="main-content"></main>
-    </div>
+<header>
+  <h1><img class="logo" id="lg" src="data:image/webp;base64,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" alt="Logo lớp 11B2">Lunar Homework</h1>
+  <div id="who"></div>
+</header>
+
+<div id="login">
+  <div class="card">
+    <img class="logo-lg" id="lg2" alt="Logo lớp 11B2">
+    <h2>Nhập tên để vào làm bài</h2>
+    <p class="mu">Nhập đúng họ tên của bạn.</p>
+    <input type="text" id="nm" placeholder="Nhập họ tên của bạn" autocomplete="off">
+    <input type="password" id="pw" placeholder="Mật khẩu quản trị" autocomplete="current-password" hidden style="width:100%;padding:9px 11px;margin-top:8px;border:1px solid var(--bd);border-radius:8px;background:var(--card)">
+    <p class="mu"><small>Lưu ý: người quản trị có thể biết bạn đang làm bài nào.</small></p>
+    <p id="err" role="alert"></p>
+    <button onclick="login()">Vào làm bài</button>
   </div>
+</div>
 
-  <!-- Firebase Compat Libraries -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<div id="app" hidden>
+  <aside id="side"></aside>
+  <div>
+    <main id="main"></main>
+    <section id="board" class="card"></section>
+  </div>
+</div>
 
-  <script>
-    /* ===================== CONFIG & INITIALIZATION ===================== */
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+<script>
+/* ===================== CẤU HÌNH ===================== */
+const CONFIG = {
+  ADMIN: "MythicxnDev",   // nhập tên này để mở trang quản trị
+  ADMIN_EMAIL: "mythicxng@gmail.com",        // email tài khoản admin tạo trong Firebase Authentication (mật khẩu KHÔNG ghi ở đây)
+  MIN_MATCH: 2,           // số chữ tối thiểu phải khớp với tên trong danh sách
+  // Dán cấu hình Firebase vào đây để mọi người dùng chung dữ liệu. Để null = chỉ lưu trên máy này (chạy thử).
+  firebase: {
+    apiKey: "AIzaSyBI3DXvPxoL2JEcIFy9wbeuV1gB9T6OMFs",
+    authDomain: "homework-lunar.firebaseapp.com",
+    projectId: "homework-lunar",
+    storageBucket: "homework-lunar.firebasestorage.app",
+    messagingSenderId: "939241650118",
+    appId: "1:939241650118:web:0dd50bf79610a5dea164c7"
+  }
+  /* ví dụ:
+  firebase: { apiKey:"...", authDomain:"xxx.firebaseapp.com", projectId:"xxx", appId:"..." }
+  */
+};
+
+const STUDENTS = ["Đào Công Lê Duy","Đỗ Nguyễn Hoàng Thơ","Huỳnh Hải My","Lê Ngọc Thiên Hồng","Lê Nguyễn Bảo Khang","Lê Nguyễn Hải Vân","Lê Phúc Tấn","Ngô Nguyễn Bảo An","Nguyễn Bảo Vy","Nguyễn Gia Bảo","Nguyễn Hoài Thảo","Nguyễn Ngọc Quỳnh Như","Nguyễn Ngọc Thảo Phương","Nguyễn Ngọc Tuyết","Nguyễn Nhật Nam","Nguyễn Phan Cát Tường","Nguyễn Thành Luân","Nguyễn Thanh Trúc","Nguyễn Thị Anh","Nguyễn Tuấn Dũng","Nguyễn Tuấn Khôi","Phạm Hà Ngọc Bích","Phạm Ngọc Quế Minh","Phạm Nguyễn Hồng Lan","Phạm Nguyễn Thiên Phúc","Phạm Trần Tâm Nguyên","Trần Bảo Ngọc","Trần Cao Tiến","Trần Minh Khôi","Trần Ngọc Khánh An","Trần Ngọc Quỳnh Trâm","Trần Thanh Sang","Trịnh Hoàng Phát","Trịnh Hoàng Phong","Võ Lâm Kim Thương"];
+const DEFAULT_SUBJECTS = ["Toán","Ngữ văn","Tiếng Anh","Vật lí","Hóa học","Sinh học","Lịch sử","Địa lí","Tin học"];
+
+/* ===================== TIỆN ÍCH ===================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/\s+/g, " ").trim();
+
+function findStudent(input) {
+  const words = [...new Set(norm(input).split(" ").filter(Boolean))];
+  if (!words.length) return null;
+  const need = Math.min(CONFIG.MIN_MATCH, words.length);
+  let best = null, bestN = 0;
+  STUDENTS.forEach(st => {
+    const sw = new Set(norm(st).split(" "));
+    const n = words.filter(w => sw.has(w)).length;
+    if (n >= need && n > bestN) { best = st; bestN = n; }
+  });
+  return best;
+}
+
+/* ===================== LƯU TRỮ ===================== */
+let store, cloud = false;
+(function initStore() {
+  if (CONFIG.firebase && typeof firebase !== "undefined") {
+    firebase.initializeApp(CONFIG.firebase);
+    const fs = firebase.firestore();
+    cloud = true;
+    store = {
+      sub: (c, cb, er) => fs.collection(c).onSnapshot(s => cb(s.docs.map(d => ({ ...d.data(), id: d.id }))), er || (e => console.error(c, e))),
+      get: (c, id) => fs.collection(c).doc(id).get().then(d => d.exists ? { ...d.data(), id: d.id } : null),
+      put: (c, o) => fs.collection(c).doc(o.id).set(o),
+      del: (c, id) => fs.collection(c).doc(id).delete()
     };
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-
-    const S = {
-      admin: false,
-      user: null,
-      view: 'home',
-      ai: { enabled: true, provider: 'gemini', model: 'gemini-2.5-flash', hasKey: false }
+  } else {
+    const subs = {};
+    const get = c => { try { return JSON.parse(localStorage.getItem("lh_" + c) || "[]"); } catch (e) { return []; } };
+    const set = (c, a) => { localStorage.setItem("lh_" + c, JSON.stringify(a)); (subs[c] || []).forEach(f => f(get(c))); };
+    store = {
+      sub: (c, cb) => { (subs[c] = subs[c] || []).push(cb); cb(get(c)); },
+      get: (c, id) => Promise.resolve(get(c).find(x => x.id === id) || null),
+      put: (c, o) => { set(c, get(c).filter(x => x.id !== o.id).concat(o)); return Promise.resolve(); },
+      del: (c, id) => { set(c, get(c).filter(x => x.id !== id)); return Promise.resolve(); }
     };
+  }
+})();
 
-    const store = {
-      async get(col, id) {
-        try {
-          const doc = await db.collection(col).doc(id).get();
-          return doc.exists ? doc.data() : null;
-        } catch(e) { return null; }
-      }
+/* ===================== ĐỌC ĐỀ TỪ VĂN BẢN ===================== */
+const HELP = `Câu 1: Thủ đô của Việt Nam là gì?
+A. Huế
+B. Hà Nội
+C. Đà Nẵng
+D. Cần Thơ
+Đáp án: B
+
+Câu 2: Xét các phát biểu sau về nước:
+a) Nước sôi ở 100°C ở áp suất thường = Đ
+b) Nước đá nặng hơn nước lỏng = S
+c) Nước là hợp chất = Đ
+d) Nước không có thể tích = S`;
+
+function parse(text) {
+  const qs = [], errors = [];
+  let cur = null, m;
+  String(text).split(/\r?\n/).forEach(raw => {
+    const l = raw.trim();
+    if (!l) return;
+    if ((m = l.match(/^C[âa]u\s*\d*\s*[:.)]\s*(.*)$/i))) { cur = { q: m[1], opts: [], sts: [], ans: null }; qs.push(cur); }
+    else if (!cur) return;
+    else if ((m = l.match(/^([A-D])[.)]\s*(.*)$/))) cur.opts.push({ k: m[1], t: m[2] });
+    else if ((m = l.match(/^([a-d])[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S|s)$/))) cur.sts.push({ k: m[1], t: m[2], v: m[3].toUpperCase() === "Đ" });
+    else if ((m = l.match(/^(?:Đáp án|Dap an|ĐA|DA)\s*[:.]\s*([A-Da-d])/i))) cur.ans = m[1].toUpperCase();
+    else cur.q += " " + l;
+  });
+  const ok = [];
+  qs.forEach((q, i) => {
+    if (q.sts.length >= 2) ok.push(q);
+    else if (q.opts.length >= 2 && q.ans && q.opts.some(o => o.k === q.ans)) ok.push(q);
+    else errors.push("Câu " + (i + 1) + " thiếu lựa chọn hoặc đáp án");
+  });
+  return { qs: ok, errors };
+}
+
+function grade(qs, A) {
+  let sc = 0, right = 0;
+  qs.forEach((q, i) => {
+    if (q.sts.length) {
+      const c = q.sts.filter(s => A[i + s.k] === s.v).length, n = q.sts.length;
+      sc += n === 4 ? [0, .1, .25, .5, 1][c] : c / n;
+      if (c === n) right++;
+    } else if (A[i] === q.ans) { sc++; right++; }
+  });
+  return { score: Math.round(sc / qs.length * 100) / 10, right };
+}
+
+
+/* ===================== ẢNH TRONG ĐỀ ===================== */
+const IMG_RE = /\[(?:ảnh|anh|img)\s*:\s*([^\]]+?)\s*\]/gi;
+const ikey = id => String(id).trim().replace(/[^\w-]/g, "_");
+const isUrl = v => /^https?:\/\//i.test(v);
+function rt(text, imgs) {
+  return esc(text).replace(IMG_RE, (_, id) => {
+    id = id.trim();
+    const src = isUrl(id.replace(/&amp;/g, "&")) ? id : (imgs || {})[ikey(id)];
+    return src ? `<img class="qi" src="${src}" alt="Hình minh họa" loading="lazy">` : `<span class="tag-no">[thiếu ảnh ${id}]</span>`;
+  });
+}
+const R = s => rt(s, (S.quiz && S.quiz.imgs) || {});
+function tokensOf(text) { const out = []; String(text).replace(IMG_RE, (_, id) => { id = id.trim(); if (!isUrl(id) && !out.includes(id)) out.push(id); }); return out; }
+function compress(file, max = 800, quality = 0.72) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, max / Math.max(im.width, im.height));
+      const c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", quality));
     };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Không đọc được ảnh")); };
+    im.src = url;
+  });
+}
+async function addImg(id, file) { try { S.quiz.imgs[ikey(id)] = await compress(file); } catch (e) { alert(e.message); } }
+function pickImg(id) {
+  const i = document.createElement("input"); i.type = "file"; i.accept = "image/*";
+  i.onchange = async () => { if (i.files[0]) { await addImg(id, i.files[0]); prevQ(); } };
+  i.click();
+}
+function insertAtCursor(t) {
+  const a = $("ex"), s0 = a.selectionStart, e0 = a.selectionEnd;
+  a.value = a.value.slice(0, s0) + t + a.value.slice(e0);
+  a.selectionStart = a.selectionEnd = s0 + t.length; a.focus();
+}
+const IMG_LIMIT = 900000;
+function imgBytes(text) { return tokensOf(text).reduce((n, id) => n + ((S.quiz.imgs[ikey(id)] || "").length), 0); }
 
-    /* ===================== AI & FALLBACK MODEL ===================== */
-    const AI_DEF = { 
-      gemini: { name: "Google Gemini", model: "gemini-2.5-flash" }, 
-      openai: { name: "OpenAI", model: "gpt-4o-mini" }, 
-      claude: { name: "Anthropic Claude", model: "claude-haiku-5-5" } 
-    };
+/* ===================== TRẠNG THÁI ===================== */
+const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", ai: null, aiCache: {}, aiBusy: {} };
 
-    const GEMINI_FALLBACK_MODELS = [
-      "gemini-2.5-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-8b"
-    ];
-
-    const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng.";
-
-    const aiReady = () => !!(S.ai && S.ai.enabled && S.ai.hasKey && AI_DEF[S.ai.provider]);
-
-    async function aiCallSingle(system, user, provider, model, key) {
-      const J = { "Content-Type": "application/json" };
-      let r, d;
-      if (provider === "openai") {
-        r = await fetch("https://api.openai.com/v1/chat/completions", { 
-          method: "POST", 
-          headers: { ...J, Authorization: "Bearer " + key }, 
-          body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }] }) 
-        });
-        d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
-        return d.choices[0].message.content;
-      }
-      if (provider === "claude") {
-        r = await fetch("https://api.anthropic.com/v1/messages", { 
-          method: "POST", 
-          headers: { ...J, "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, 
-          body: JSON.stringify({ model, max_tokens: 2000, system, messages: [{ role: "user", content: user }] }) 
-        });
-        d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
-        return d.content.map(c => c.text || "").join("");
-      }
-      // Gemini Default Call
-      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { 
-        method: "POST", 
-        headers: { ...J, "x-goog-api-key": key }, 
-        body: JSON.stringify({ 
-          systemInstruction: { parts: [{ text: system }] }, 
-          contents: [{ role: "user", parts: [{ text: user }] }], 
-          generationConfig: { temperature: 0.4 } 
-        }) 
-      });
-      d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
-      const c = (d.candidates || [])[0] && d.candidates[0].content;
-      if (!c || !c.parts) throw new Error("AI không trả về nội dung.");
-      return c.parts.map(x => x.text || "").join("");
+const isAdminName = v => norm(v) === norm(CONFIG.ADMIN);
+async function login() {
+  const v = $("nm").value.trim();
+  if (!v) return;
+  if (isAdminName(v)) {
+    if (cloud) {
+      if (!CONFIG.ADMIN_EMAIL) { $("err").textContent = "Chưa cấu hình ADMIN_EMAIL trong CONFIG."; return; }
+      const pw = $("pw").value;
+      if (!pw) { $("err").textContent = "Nhập mật khẩu quản trị."; $("pw").focus(); return; }
+      try { await firebase.auth().signInWithEmailAndPassword(CONFIG.ADMIN_EMAIL, pw); }
+      catch (e) { $("err").textContent = "Sai mật khẩu quản trị."; return; }
     }
+    S.user = CONFIG.ADMIN; S.admin = true;
+  } else {
+    const st = findStudent(v);
+    if (!st) { $("err").textContent = "Tên này không có trong danh sách lớp 11B02. Hãy nhập lại họ tên."; return; }
+    S.user = st; S.admin = false;
+  }
+  $("login").hidden = true; $("app").hidden = false;
+  $("who").innerHTML = `<span>${esc(S.user)}${S.admin ? " (quản trị)" : ""}</span><button onclick="logout()">Đổi người</button>`;
+  start();
+  if (!S.admin) liveInit();
+}
+function logout() { (cloud ? firebase.auth().signOut() : Promise.resolve()).catch(() => {}).finally(() => location.reload()); }
+$("lg2").src = $("lg").src;
+$("nm").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+$("nm").addEventListener("input", () => { $("pw").hidden = !(cloud && isAdminName($("nm").value)); });
+$("pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 
-    async function aiCall(system, user, o) {
-      if (!o) { 
-        const sec = await store.get("secrets", "ai"); 
-        o = { provider: S.ai.provider, model: S.ai.model, key: sec && sec.key }; 
-      }
-      if (!o.key) throw new Error("Chưa có key API.");
-
-      if (o.provider !== "gemini") {
-        return await aiCallSingle(system, user, o.provider, o.model, o.key);
-      }
-
-      let modelsToTry = [o.model, ...GEMINI_FALLBACK_MODELS];
-      modelsToTry = [...new Set(modelsToTry)];
-
-      let lastError = null;
-      for (const mdl of modelsToTry) {
-        try {
-          const res = await aiCallSingle(system, user, "gemini", mdl, o.key);
-          return res;
-        } catch (err) {
-          lastError = err;
-          console.warn(`Model ${mdl} gặp lỗi, chuyển sang model dự phòng tiếp theo...`, err);
-        }
-      }
-      throw new Error(lastError ? lastError.message : "Tất cả các model Gemini đều không phản hồi.");
-    }
-
-    /* ===================== RENDER HELPERS ===================== */
-    function renderSide() {
-      const side = document.getElementById('side-nav');
-      side.innerHTML = `
-        <div style="margin-bottom: 20px;">
-          <p style="font-weight: 600;">Menu</p>
-          <button class="btn btn-sec" style="width: 100%; margin-top: 8px; text-align: left;" onclick="S.view='home'; renderMain();">Trang chủ</button>
-          ${S.admin ? `<button class="btn btn-sec" style="width: 100%; margin-top: 8px; text-align: left;" onclick="S.view='live'; renderMain();">✓ Ai đang làm bài</button>` : ''}
-        </div>
-      `;
-    }
-
-    function renderMain() {
-      const main = document.getElementById('main-content');
-      if (S.view === 'home') {
-        main.innerHTML = `
-          <div class="card">
-            <h2>Bài tập trắc nghiệm mẫu</h2>
-            <p style="margin: 8px 0 16px; color: var(--sub);">Dưới đây là ví dụ giao diện câu hỏi Đúng / Sai với thiết kế nút bấm mới.</p>
-            
-            <!-- Ví dụ Câu hỏi Đúng/Sai -->
-            <div style="border-top: 1px solid var(--bd); padding-top: 16px;">
-              <div class="q-title">Câu 1: Cho hàm số $y = f(x)$. Xét tính đúng/sai của các phát biểu sau:</div>
-              
-              <div class="st">
-                <span class="st-text">a) Hàm số đồng biến trên khoảng $(0; +\infty)$</span>
-                <div class="st-opts">
-                  <label><input type="radio" name="q1_a" value="1"> Đúng</label>
-                  <label><input type="radio" name="q1_a" value="0"> Sai</label>
-                </div>
-              </div>
-
-              <div class="st">
-                <span class="st-text">b) Đồ thị hàm số đi qua điểm $A(1; 2)$</span>
-                <div class="st-opts">
-                  <label><input type="radio" name="q1_b" value="1"> Đúng</label>
-                  <label><input type="radio" name="q1_b" value="0"> Sai</label>
-                </div>
-              </div>
-
-              <div class="st">
-                <span class="st-text">c) Giá trị cực đại của hàm số là $y = -1$</span>
-                <div class="st-opts">
-                  <label><input type="radio" name="q1_c" value="1"> Đúng</label>
-                  <label><input type="radio" name="q1_c" value="0"> Sai</label>
-                </div>
-              </div>
-            </div>
-
-            <button class="btn" style="margin-top: 16px;" onclick="testAI()">Thử gọi AI Giải thích</button>
-            <div id="ai-res"></div>
-          </div>
-        `;
-      } else if (S.view === 'live') {
-        main.innerHTML = `<div class="card"><h2>Danh sách học sinh đang làm bài</h2><p>Đang tải dữ liệu...</p></div>`;
-      }
-    }
-
-    async function testAI() {
-      const target = document.getElementById('ai-res');
-      target.innerHTML = '<div class="ai-box">Đang gọi AI (có fallback)...</div>';
-      try {
-        // Tải key thử nghiệm hoặc dùng key mẫu
-        const res = await aiCall(AI_SYS, "Giải thích ngắn gọn tại sao 1+1=2.");
-        target.innerHTML = `<div class="ai-box"><b>AI Trả lời:</b><br>${res}</div>`;
-      } catch (e) {
-        target.innerHTML = `<div class="ai-box" style="border-color: var(--no);"><b>Lỗi:</b> ${e.message}</div>`;
-      }
-    }
-
-    /* Initialize app UI */
-    auth.onAuthStateChanged(user => {
-      S.user = user;
-      S.admin = !!user;
-      document.getElementById('auth-status').innerText = user ? `Admin: ${user.email}` : 'Khách';
-      renderSide();
-      renderMain();
+function start() {
+  if (!S.started) {
+    S.started = true;
+    store.sub("subjects", a => {
+      S.subjects = a.sort((x, y) => (x.o || 0) - (y.o || 0));
+      if (S.admin && !a.length && !S.seeded) { S.seeded = true; DEFAULT_SUBJECTS.forEach((n, i) => store.put("subjects", { id: uid(), name: n, o: i })); }
+      renderSide(); if (S.view === "list") renderMain();
     });
-  </script>
+    store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => (x.time || 0) - (y.time || 0)); renderSide(); if (S.view === "list") renderMain(); });
+    store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); });
+    store.sub("settings", a => {
+      S.ai = a.find(x => x.id === "ai") || null;
+      if (S.view === "aiset" && $("ast")) $("ast").innerHTML = aiStatus(); else if (S.view === "review") renderMain();
+    }, e => console.warn("settings", e));
+    if (S.admin) {
+      store.sub("live", a => { S.live = a; S.liveErr = ""; renderSide(); if (S.view === "live") renderMain(); }, e => { S.liveErr = e.message || String(e); if (S.view === "live") renderMain(); });
+      setInterval(() => { renderSide(); if (S.view === "live") renderMain(); }, 30000);
+    }
+  }
+  go("home");
+}
+
+
+/* ===================== AI ĐANG LÀM BÀI ===================== */
+// Học sinh đang ở trong bài thì báo "còn đây" mỗi 2 phút. Nộp bài = xóa ngay.
+// Thoát giữa chừng / tắt tab / mất mạng: không báo nữa, quản trị vẫn thấy tối đa LIVE_TTL (5 phút) kể từ tín hiệu cuối rồi tự ẩn.
+const LIVE_TTL = 5 * 60 * 1000;
+const LIVE_BEAT = 2 * 60 * 1000;
+const LIVE_IDLE = { state: "idle", quiz: null, subject: null, since: null };
+const LIVE = { id: null, d: { state: "idle", quiz: null, subject: null, since: null } };
+function liveSend(patch) {
+  if (S.admin || !S.user || !LIVE.id) return;
+  Object.assign(LIVE.d, patch, { id: LIVE.id, name: S.user, last: Date.now() });
+  try { Promise.resolve(store.put("live", { ...LIVE.d })).catch(() => {}); } catch (e) {}
+}
+function liveBeat() { if (S.view === "take" && LIVE.d.state === "doing") liveSend({}); }
+function liveInit() {
+  LIVE.id = "u_" + norm(S.user).replace(/\s+/g, "_");
+  setInterval(liveBeat, LIVE_BEAT);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) liveBeat(); });
+}
+function liveActive() { const now = Date.now(); return S.live.filter(x => x.state === "doing" && now - (x.last || 0) < LIVE_TTL); }
+function renderLive() {
+  const act = liveActive(), doing = new Map(act.map(x => [x.name, x]));
+  const rows = STUDENTS.slice().sort((a, b) => (doing.has(b) ? 1 : 0) - (doing.has(a) ? 1 : 0) || a.localeCompare(b, "vi")).map(n => {
+    const x = doing.get(n);
+    if (x) {
+      const age = Date.now() - (x.last || 0), fresh = age < LIVE_BEAT * 1.5, left = Math.max(1, Math.ceil((LIVE_TTL - age) / 60000));
+      return `<tr><td>${fresh ? `<span class="tag-ok">✓</span>` : `<span title="Đã thoát hoặc mất kết nối" style="color:#e0a100;font-weight:700">⏳</span>`}</td><td><b>${esc(n)}</b></td><td>${esc(x.quiz || "")}${x.subject ? ` <small class="mu">· ${esc(x.subject)}</small>` : ""}${fresh ? "" : ` <small class="mu">· đã thoát/mất kết nối, tự ẩn sau ~${left} phút</small>`}</td></tr>`;
+    }
+    return `<tr><td class="mu">–</td><td class="mu">${esc(n)}</td><td></td></tr>`;
+  }).join("");
+  return `<div class="row sp"><h2>Ai đang làm bài</h2><div class="mu">Đang làm: <b>${act.length}</b>/${STUDENTS.length}</div></div>` +
+    (S.liveErr ? `<div class="card"><p class="tag-no">Không đọc được dữ liệu: ${esc(S.liveErr)}</p><p class="mu">Hãy thêm <code>live</code> vào Firestore Rules rồi Publish.</p></div>` : "") +
+    (!cloud ? `<div class="card"><p class="tag-no">Đang ở chế độ thử (chưa có Firebase): chỉ thấy người dùng trên cùng máy này.</p></div>` : "") +
+    `<div class="card"><div class="tw"><table><tr><th></th><th>Họ tên</th><th>Bài đang làm</th></tr>${rows}</table></div>
+    <p class="mu">✓ = đang làm bài. ⏳ = đã thoát hoặc tắt trình duyệt giữa chừng, vẫn hiện tối đa 5 phút rồi tự ẩn. Nộp bài xong thì biến mất ngay.</p></div>`;
+}
+
+/* ===================== AI PHÂN TÍCH ĐÁP ÁN ===================== */
+// Key API do quản trị (dev) nhập ở mục "⚙ Cài đặt AI", lưu trong Firestore: settings/ai (cấu hình) + secrets/ai (key).
+const AI_DEF = { gemini: { name: "Google Gemini", model: "gemini-2.5-flash" }, openai: { name: "OpenAI", model: "gpt-4o-mini" }, claude: { name: "Anthropic Claude", model: "claude-haiku-5-5" } };
+const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng.";
+const aiReady = () => !!(S.ai && S.ai.enabled && S.ai.hasKey && AI_DEF[S.ai.provider]);
+const aiMd = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ").replace(/\n/g, "<br>");
+const plain = t => String(t).replace(IMG_RE, "[hình minh họa - AI không xem được]");
+const qOk = (q, i) => q.sts.length ? q.sts.every(s => S.A[i + s.k] === s.v) : S.A[i] === q.ans;
+function aiQText(q, i) {
+  const A = S.A; let t = `Câu ${i + 1}: ${plain(q.q)}\n`;
+  if (q.sts.length) q.sts.forEach(s => { const a = A[i + s.k]; t += `${s.k}) ${plain(s.t)} | Đáp án đề: ${s.v ? "Đúng" : "Sai"} | HS chọn: ${a === undefined ? "bỏ trống" : a ? "Đúng" : "Sai"}\n`; });
+  else { q.opts.forEach(o => t += `${o.k}. ${plain(o.t)}\n`); t += `Đáp án đề: ${q.ans} | HS chọn: ${A[i] || "bỏ trống"}\n`; }
+  return t;
+}
+async function aiCall(system, user, o) {
+  if (!o) { const sec = await store.get("secrets", "ai"); o = { provider: S.ai.provider, model: S.ai.model, key: sec && sec.key }; }
+  if (!o.key) throw new Error("Chưa có key API.");
+  const model = o.model || AI_DEF[o.provider].model, J = { "Content-Type": "application/json" };
+  let r, d;
+  if (o.provider === "openai") {
+    r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { ...J, Authorization: "Bearer " + o.key }, body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }] }) });
+    d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+    return d.choices[0].message.content;
+  }
+  if (o.provider === "claude") {
+    r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { ...J, "x-api-key": o.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: 2000, system, messages: [{ role: "user", content: user }] }) });
+    d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+    return d.content.map(c => c.text || "").join("");
+  }
+  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature: .4 } }) });
+  d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+  const c = (d.candidates || [])[0] && d.candidates[0].content;
+  if (!c || !c.parts) throw new Error("AI không trả về nội dung.");
+  return c.parts.map(x => x.text || "").join("");
+}
+async function aiRun(key, build) {
+  if (S.aiBusy[key] || !aiReady()) return;
+  S.aiBusy[key] = 1; delete S.aiCache[key]; if (S.view === "review") renderMain();
+  const quiz = S.quiz;
+  try { const t = await aiCall(AI_SYS, build()); if (S.quiz === quiz) S.aiCache[key] = { t }; }
+  catch (e) { if (S.quiz === quiz) S.aiCache[key] = { e: e.message || String(e) }; }
+  delete S.aiBusy[key]; if (S.view === "review") renderMain();
+}
+function aiAll() {
+  aiRun("all", () => {
+    const wrong = S.qs.map((q, i) => [q, i]).filter(([q, i]) => !qOk(q, i)), { score, right } = grade(S.qs, S.A);
+    return `Học sinh vừa làm bài "${S.quiz.title}": ${score}/10, đúng hoàn toàn ${right}/${S.qs.length} câu.\n` + (wrong.length
+      ? `Các câu chưa đúng:\n\n${wrong.map(([q, i]) => aiQText(q, i)).join("\n")}\nHãy: 1) nhận xét tổng quan (2-3 câu); 2) với từng câu sai: vì sao đáp án đề đúng và học sinh có thể nhầm ở đâu; 3) chỉ ra phần kiến thức cần ôn lại và gợi ý cách ôn ngắn gọn.`
+      : `Học sinh làm đúng hết. Hãy khen ngắn gọn và gợi ý 1-2 hướng mở rộng kiến thức.`);
+  });
+}
+function aiOne(i) { aiRun("q" + i, () => `Học sinh làm bài "${S.quiz.title}".\n\n${aiQText(S.qs[i], i)}\nHãy giải thích ngắn gọn vì sao đáp án đề đúng, vì sao lựa chọn của học sinh chưa đúng, kèm một mẹo nhớ.`); }
+function aiOut(key) {
+  if (S.aiBusy[key]) return `<p class="mu">🤖 AI đang phân tích…</p>`;
+  const c = S.aiCache[key]; if (!c) return "";
+  return c.e ? `<p class="tag-no">Lỗi AI: ${esc(c.e)}</p>` : `<div class="ai">${aiMd(c.t)}</div>`;
+}
+function aiBtnQ(i) { return `<div style="margin-top:8px"><button class="g" onclick="aiOne(${i})" ${S.aiBusy["q" + i] ? "disabled" : ""}>🤖 Giải thích câu này</button>${aiOut("q" + i)}</div>`; }
+function aiBlock() {
+  if (aiReady()) return `<div style="margin-top:12px"><button onclick="aiAll()" ${S.aiBusy.all ? "disabled" : ""}>🤖 Phân tích bài làm bằng AI</button>${aiOut("all")}</div>`;
+  return S.admin ? `<p class="mu">AI chưa bật. Vào “⚙ Cài đặt AI” để nhập key.</p>` : "";
+}
+function aiStatus() {
+  const c = S.ai || {};
+  return aiReady() ? `<span class="tag-ok">Đang bật</span> · ${esc(AI_DEF[c.provider].name)} · key …${esc(c.last4 || "")}` : c.hasKey ? `<span class="tag-no">Đã có key nhưng đang tắt</span>` : `<span class="tag-no">Chưa có key → học sinh chưa thấy nút AI</span>`;
+}
+function renderAiSet() {
+  const c = S.ai || {}, p = AI_DEF[c.provider] ? c.provider : "gemini";
+  return `<div class="card"><h2>⚙ Cài đặt AI (dev)</h2>
+    <p class="mu">Trạng thái: <span id="ast">${aiStatus()}</span></p>
+    <p><label>Nhà cung cấp<select id="ap" onchange="$('am').value=AI_DEF[this.value].model">${Object.entries(AI_DEF).map(([k, v]) => `<option value="${k}" ${k === p ? "selected" : ""}>${v.name}</option>`).join("")}</select></label></p>
+    <p><label>Model (sửa được nếu nhà cung cấp đổi tên model)<input type="text" id="am" value="${esc(c.model || AI_DEF[p].model)}"></label></p>
+    <p><label>API key<input type="password" id="ak" placeholder="${c.hasKey ? "Để trống = giữ key đang lưu" : "Dán API key vào đây"}" autocomplete="off"></label></p>
+    <p><label><input type="checkbox" id="ae" ${c.enabled !== false ? "checked" : ""}> Bật AI cho học sinh</label></p>
+    <p id="amsg" class="mu"></p>
+    <div class="row"><button onclick="aiSave()">Lưu</button><button class="g" onclick="aiTest()">Thử kết nối</button>${c.hasKey ? `<button class="d" onclick="aiDel()">Xóa key</button>` : ""}</div></div>
+    <div class="card mu"><b>Lưu ý bảo mật</b><br>Web chạy hoàn toàn ở trình duyệt nên khi học sinh bấm “Phân tích”, trình duyệt của em ấy phải đọc được key. Vì vậy hãy dùng key có giới hạn (ví dụ key Gemini miễn phí chưa gắn thẻ, hoặc đặt hạn mức chi tiêu thấp) và đừng dùng key chính của bạn.</div>`;
+}
+async function aiSave() {
+  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, k = $("ak").value.trim(), old = S.ai || {}, msg = $("amsg");
+  if (!k && !old.hasKey) { msg.innerHTML = `<span class="tag-no">Hãy dán API key.</span>`; return; }
+  if (!k && old.provider && old.provider !== p) { msg.innerHTML = `<span class="tag-no">Đổi nhà cung cấp thì cần dán key mới.</span>`; return; }
+  msg.textContent = "Đang lưu…";
+  const doc = { id: "ai", provider: p, model, enabled: $("ae").checked, hasKey: true, last4: k ? k.slice(-4) : (old.last4 || ""), time: Date.now() };
+  try {
+    if (k) await store.put("secrets", { id: "ai", key: k, time: Date.now() });
+    await store.put("settings", doc);
+    S.ai = doc; renderMain(); $("amsg").innerHTML = `<span class="tag-ok">Đã lưu vào database.</span>`;
+  } catch (e) { msg.innerHTML = `<span class="tag-no">Lưu thất bại: ${esc(e.message || e)}. Kiểm tra Firestore Rules cho settings và secrets.</span>`; }
+}
+async function aiTest() {
+  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, msg = $("amsg");
+  msg.textContent = "Đang thử kết nối…";
+  try {
+    let key = $("ak").value.trim();
+    if (!key) { const sec = await store.get("secrets", "ai"); key = sec && sec.key; }
+    const t = await aiCall("Trả lời đúng một từ.", "Hãy nói: OK", { provider: p, model, key });
+    msg.innerHTML = `<span class="tag-ok">Kết nối được.</span> AI trả lời: ${esc(t.slice(0, 80))}`;
+  } catch (e) { msg.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
+}
+async function aiDel() {
+  if (!confirm("Xóa key API đã lưu? Học sinh sẽ không còn thấy nút AI.")) return;
+  try {
+    const doc = { id: "ai", provider: (S.ai || {}).provider || "gemini", model: (S.ai || {}).model || "", enabled: false, hasKey: false, last4: "", time: Date.now() };
+    await store.del("secrets", "ai"); await store.put("settings", doc); S.ai = doc; renderMain();
+  } catch (e) { $("amsg").innerHTML = `<span class="tag-no">Xóa thất bại: ${esc(e.message || e)}</span>`; }
+}
+
+/* ===================== GIAO DIỆN ===================== */
+function go(v) {
+  S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0);
+}
+function openSub(id) { S.sub = id; go("list"); }
+
+function renderSide() {
+  $("side").innerHTML = `<div class="card">
+    <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
+    (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${S.quizzes.filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
+    (S.admin ? `<hr><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+}
+
+function renderMain() {
+  const m = $("main"); m.onchange = null;
+  if (S.view === "home") {
+    m.innerHTML = `<div class="card"><h2>Chào ${esc(S.user)}</h2>
+      <p>Trang web thuộc quyền sở hữu của lớp 11B02 do Lunar quản lý. Quyền sử dụng chỉ thuộc về lớp 11B02 và các lớp được cho phép. Hãy liên hệ lớp 11B02 nếu muốn được sử dụng.</p>
+      <p>Chọn môn học ở thanh bên trái, bấm vào bài rồi làm. Nộp bài xong sẽ có điểm và xem được câu nào đúng, câu nào sai.</p>
+      ${S.admin && !cloud ? `<p class="tag-no">Đang ở chế độ thử: dữ liệu chỉ lưu trên máy này. Hãy gắn Firebase trong phần CONFIG để cả lớp dùng chung.</p>` : ""}</div>`;
+  } else if (S.view === "list") {
+    const sub = S.subjects.find(s => s.id === S.sub);
+    if (!sub) return go("home");
+    const qz = S.quizzes.filter(q => q.subject === sub.id);
+    m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">+ Thêm bài</button><button class="g" onclick="renameSub()">Đổi tên môn</button><button class="d" onclick="delSub()">Xóa môn</button></div>` : ""}</div>` +
+      (qz.length ? qz.map(q => {
+        const n = parse(q.text).qs.length;
+        return `<div class="card row sp"><div><b>${esc(q.title)}</b><div class="mu">${n} câu</div></div>
+          <div class="row"><button onclick="take('${q.id}')">Làm bài</button>${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
+      }).join("") : `<div class="card mu">Môn này chưa có bài nào.${S.admin ? " Bấm “Thêm bài” để upload bài đầu tiên." : ""}</div>`);
+  } else if (S.view === "take") {
+    m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.</div></div>` +
+      S.qs.map((q, i) => `<div class="card"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
+        (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${R(s.t)}</span><span><label><input type="radio" name="q${i}${s.k}" value="1"> Đúng</label><label><input type="radio" name="q${i}${s.k}" value="0"> Sai</label></span></div>`).join("")
+          : q.opts.map(o => `<label class="op"><input type="radio" name="q${i}" value="${o.k}"> ${o.k}. ${R(o.t)}</label>`).join("")) + `</div>`).join("") +
+      `<div class="row"><button onclick="submitQuiz()">Nộp bài</button><button class="g" onclick="go('list')">Thoát</button></div>`;
+  } else if (S.view === "review") {
+    const { score, right } = grade(S.qs, S.A);
+    m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="score">${score}/10</div>
+      <div class="mu">Đúng hoàn toàn ${right}/${S.qs.length} câu. ${S.admin ? "(Quản trị: kết quả không được lưu vào bảng.)" : "Kết quả đã lưu vào bảng bên dưới."}</div>
+      <p><label><input type="checkbox" ${S.onlyWrong ? "checked" : ""} onchange="S.onlyWrong=this.checked;renderMain()"> Chỉ hiện câu sai</label></p>
+      <div class="row"><button onclick="take('${S.quiz.id}')">Làm lại</button><button class="g" onclick="go('list')">Về danh sách bài</button></div>${aiBlock()}</div>` +
+      S.qs.map((q, i) => reviewQ(q, i)).join("");
+  } else if (S.view === "live") {
+    m.innerHTML = renderLive();
+  } else if (S.view === "aiset") {
+    if (!S.admin) return go("home");
+    m.innerHTML = renderAiSet();
+  } else if (S.view === "edit") {
+    const q = S.quiz;
+    m.innerHTML = `<div class="card"><h2>${q.id ? "Sửa bài" : "Thêm bài mới"}</h2>
+      <p><label>Tên bài<input type="text" id="et" value="${esc(q.title)}"></label></p>
+      <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
+      <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
+      <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh tại vị trí con trỏ</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh (trong câu hỏi hoặc đáp án) rồi bấm nút.</span></p>
+      <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
+      <p id="ep" class="mu"></p>
+      <div id="eimgs"></div>
+      <div class="row"><button onclick="saveQuiz()">Lưu bài</button><button class="g" onclick="go('list')">Hủy</button></div></div>
+      <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) kết thúc bằng “= Đ” hoặc “= S”. Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.</div></div>`;
+    $("ef").onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $("ex").value = r.result; if (!$("et").value) $("et").value = f.name.replace(/\.txt$/i, ""); prevQ(); }; r.readAsText(f, "utf-8"); } };
+    $("ei").onchange = async e => {
+      for (const f of e.target.files) { const id = newImgId(); await addImg(id, f); insertAtCursor(`[ảnh:${id}]`); }
+      e.target.value = ""; prevQ();
+    };
+    prevQ();
+  }
+}
+function newImgId() { let n = 1; const used = new Set([...Object.keys(S.quiz.imgs), ...tokensOf($("ex").value).map(ikey)]); while (used.has("h" + n)) n++; return "h" + n; }
+
+function reviewQ(q, i) {
+  const A = S.A; let ok, body;
+  if (q.sts.length) {
+    ok = q.sts.every(s => A[i + s.k] === s.v);
+    body = q.sts.map(s => {
+      const a = A[i + s.k], good = a === s.v, lab = x => x === undefined ? "bỏ trống" : x ? "Đúng" : "Sai";
+      return `<div class="st"><span>${s.k}) ${R(s.t)}</span><span class="${good ? "tag-ok" : "tag-no"}">${good ? "✓" : "✗"} Bạn chọn: ${lab(a)}${good ? "" : " · Đáp án: " + lab(s.v)}</span></div>`;
+    }).join("");
+  } else {
+    ok = A[i] === q.ans;
+    body = q.opts.map(o => {
+      const c = o.k === q.ans ? "right" : (o.k === A[i] ? "wrong" : "");
+      return `<div class="op ${c}">${o.k}. ${R(o.t)} ${o.k === q.ans ? `<span class="tag-ok">✓ đáp án đúng</span>` : o.k === A[i] ? `<span class="tag-no">✗ bạn chọn</span>` : ""}</div>`;
+    }).join("") + (A[i] === undefined ? `<div class="tag-no">Bạn chưa trả lời câu này.</div>` : "");
+  }
+  if (S.onlyWrong && ok) return "";
+  return `<div class="card q ${ok ? "ok" : "bad"}"><b>Câu ${i + 1}.</b> ${R(q.q)} <span class="${ok ? "tag-ok" : "tag-no"}">${ok ? "Đúng" : "Sai"}</span>${body}${!ok && aiReady() ? aiBtnQ(i) : ""}</div>`;
+}
+
+function renderBoard() {
+  const rows = S.results.slice(0, 200);
+  $("board").innerHTML = `<h3>Bảng kết quả</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th></th>" : ""}</tr>` +
+    rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
+}
+
+/* ===================== LÀM BÀI ===================== */
+function take(id) {
+  S.quiz = S.quizzes.find(q => q.id === id);
+  if (!S.quiz) return go("list");
+  S.qs = parse(S.quiz.text).qs; S.A = {}; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
+  S.view = "take"; renderSide(); renderMain(); window.scrollTo(0, 0);
+  const sb = S.subjects.find(x => x.id === S.quiz.subject);
+  liveSend({ state: "doing", quiz: S.quiz.title, subject: sb ? sb.name : null, since: Date.now() });
+}
+function submitQuiz() {
+  const A = {}; let miss = 0;
+  S.qs.forEach((q, i) => {
+    if (q.sts.length) q.sts.forEach(s => { const r = document.querySelector(`input[name="q${i}${s.k}"]:checked`); if (r) A[i + s.k] = r.value === "1"; else miss++; });
+    else { const r = document.querySelector(`input[name="q${i}"]:checked`); if (r) A[i] = r.value; else miss++; }
+  });
+  if (miss && !confirm(`Còn ${miss} ý/câu chưa trả lời. Vẫn nộp bài?`)) return;
+  S.A = A;
+  const { score } = grade(S.qs, A);
+  if (!S.admin) store.put("results", { id: uid(), name: S.user, quiz: S.quiz.title, quizId: S.quiz.id, score, time: Date.now() });
+  liveSend(LIVE_IDLE);
+  S.view = "review"; renderMain(); window.scrollTo(0, 0);
+}
+
+/* ===================== QUẢN TRỊ ===================== */
+function addSub() { const n = prompt("Tên môn học mới:"); if (n && n.trim()) store.put("subjects", { id: uid(), name: n.trim(), o: Date.now() }); }
+function renameSub() { const s = S.subjects.find(x => x.id === S.sub); const n = prompt("Tên mới:", s.name); if (n && n.trim()) store.put("subjects", { ...s, name: n.trim() }); }
+function delSub() {
+  const s = S.subjects.find(x => x.id === S.sub);
+  if (!confirm(`Xóa môn “${s.name}” và tất cả bài trong môn này?`)) return;
+  S.quizzes.filter(q => q.subject === s.id).forEach(q => store.del("quizzes", q.id));
+  store.del("subjects", s.id); S.sub = null; go("home");
+}
+function editQuiz(id) {
+  S.quiz = id ? { ...S.quizzes.find(q => q.id === id) } : { id: "", subject: S.sub, title: "", text: "" };
+  S.quiz.imgs = { ...(S.quiz.imgs || {}) };
+  S.view = "edit"; renderMain(); window.scrollTo(0, 0);
+}
+function prevQ() {
+  const r = parse($("ex").value), toks = tokensOf($("ex").value);
+  $("eimgs").innerHTML = toks.length ? `<div class="card"><b>Ảnh trong đề</b>` + toks.map(id => {
+    const src = S.quiz.imgs[ikey(id)];
+    return `<div class="thumb">${src ? `<img src="${src}" alt="">` : ""}<div style="flex:1"><code>[ảnh:${esc(id)}]</code><div class="${src ? "mu" : "tag-no"}">${src ? Math.round(src.length / 1024) + " KB" : "Chưa có ảnh"}</div></div><button class="g" data-k="${esc(id)}" onclick="pickImg(this.dataset.k)">${src ? "Đổi ảnh" : "Chọn ảnh"}</button></div>`;
+  }).join("") + `<div class="mu">Tổng dung lượng ảnh: ${Math.round(imgBytes($("ex").value) / 1024)} KB / ${Math.round(IMG_LIMIT / 1024)} KB</div></div>` : "";
+  $("ep").innerHTML = `Đọc được <b>${r.qs.length}</b> câu hợp lệ.` + (r.errors.length ? ` <span class="tag-no">${esc(r.errors.join("; "))}</span>` : "");
+}
+function saveQuiz() {
+  const title = $("et").value.trim(), text = $("ex").value, r = parse(text);
+  if (!title) return alert("Hãy nhập tên bài.");
+  if (!r.qs.length) return alert("Chưa có câu hỏi hợp lệ nào. Xem “Cách viết đề” bên dưới.");
+  if (r.errors.length && !confirm("Có câu bị lỗi và sẽ bị bỏ qua:\n" + r.errors.join("\n") + "\nVẫn lưu?")) return;
+  const miss = tokensOf(text).filter(id => !S.quiz.imgs[ikey(id)]);
+  if (miss.length && !confirm("Còn ảnh chưa chọn: " + miss.join(", ") + "\nVẫn lưu?")) return;
+  if (imgBytes(text) > IMG_LIMIT) return alert("Tổng dung lượng ảnh quá lớn (tối đa khoảng 900 KB mỗi bài). Hãy bớt ảnh hoặc dùng link ảnh [ảnh:https://...].");
+  const imgs = {}; tokensOf(text).forEach(id => { const k = ikey(id); if (S.quiz.imgs[k]) imgs[k] = S.quiz.imgs[k]; });
+  S.sub = $("es").value;
+  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, imgs, time: S.quiz.time || Date.now() })
+    .then(() => go("list")).catch(e => alert("Lưu thất bại: " + e.message));
+}
+function delQuiz(id) { if (confirm("Xóa bài này?")) store.del("quizzes", id); }
+function delRes(id) { if (confirm("Xóa dòng kết quả này?")) store.del("results", id); }
+</script>
 </body>
 </html>
