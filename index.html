@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lunar Homework</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eceef6;--card:#fff;--tx:#1b2040;--mu:#666c8f;--pr:#3f43a8;--moon:#f0c45a;--ok:#17874b;--okb:#dff3e7;--no:#c93030;--nob:#fce6e6;--bd:#d9dcec}
+@media(prefers-color-scheme:dark){:root{--bg:#12142a;--card:#1c1f3d;--tx:#e8e9fb;--mu:#9a9ec6;--pr:#8e92ff;--ok:#4cd387;--okb:#15382a;--no:#ff7b7b;--nob:#44202a;--bd:#30335a}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.55 "Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--tx)}
+button,input,select,textarea{font:inherit;color:inherit}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 22px;background:#1b1f4b;color:#fff}
+header h1{margin:0;font-size:1.35rem;font-weight:700;display:flex;align-items:center;gap:10px}
+.moon{width:22px;height:22px;border-radius:50%;background:var(--moon);box-shadow:inset -7px -3px 0 0 #1b1f4b;box-shadow:inset -8px 0 0 0 #1b1f4b,0 0 0 2px var(--moon)}
+#who{font-size:.9rem;display:flex;gap:10px;align-items:center}
+button{background:var(--pr);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--moon);outline-offset:2px}
+button.g{background:transparent;color:var(--pr);border:1px solid var(--pr)}
+button.d{background:var(--no);color:#fff}
+header button{background:transparent;border:1px solid #fff8;color:#fff}
+input[type=text],select,textarea{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;background:var(--card)}
+textarea{min-height:300px;font-family:ui-monospace,Consolas,monospace;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
+#login{max-width:430px;margin:70px auto;padding:0 16px}
+#login h2{margin-top:0}
+#err{color:var(--no);min-height:1.5em;margin:8px 0 0}
+#app{display:grid;grid-template-columns:230px 1fr;gap:18px;max-width:1100px;margin:18px auto;padding:0 16px;align-items:start}
+aside .card{padding:8px}
+aside button.s{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:transparent;color:var(--tx);margin:2px 0;padding:9px 12px}
+aside button.s.on{background:var(--pr);color:#fff}
+aside small{color:inherit;opacity:.7}
+aside hr{border:0;border-top:1px solid var(--bd);margin:6px 0}
+h2,h3{margin:.2em 0 .5em}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sp{justify-content:space-between}
+.mu{color:var(--mu);font-size:.9rem}
+.op{display:block;padding:7px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer}
+.op:hover{background:var(--bg)}
+.st{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:6px 0;border-top:1px dashed var(--bd)}
+.st label{margin-left:10px;white-space:nowrap}
+.q.ok{border-left:6px solid var(--ok)}
+.q.bad{border-left:6px solid var(--no)}
+.op.right{background:var(--okb);border-color:var(--ok)}
+.op.wrong{background:var(--nob);border-color:var(--no)}
+.tag-ok{color:var(--ok);font-weight:700}.tag-no{color:var(--no);font-weight:700}
+.score{font-size:2rem;font-weight:700}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--bd);white-space:nowrap}
+td:nth-child(3){white-space:normal}
+pre{background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto;font-size:.85rem}
+@media(max-width:720px){#app{grid-template-columns:1fr}.st{flex-direction:column;align-items:flex-start}}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<header>
+  <h1><span class="moon"></span>Lunar Homework</h1>
+  <div id="who"></div>
+</header>
+
+<div id="login">
+  <div class="card">
+    <h2>Nhập tên để vào làm bài</h2>
+    <p class="mu">Nhập đúng họ tên trong danh sách lớp (khớp 2 chữ trong tên là được vào).</p>
+    <input type="text" id="nm" placeholder="Ví dụ: Nguyễn Thanh Trúc" autocomplete="off">
+    <p id="err" role="alert"></p>
+    <button onclick="login()">Vào làm bài</button>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <aside id="side"></aside>
+  <div>
+    <main id="main"></main>
+    <section id="board" class="card"></section>
+  </div>
+</div>
+
+<script>
+/* ===================== CẤU HÌNH ===================== */
+const CONFIG = {
+  ADMIN: "MythicxnDev",   // nhập tên này để mở trang quản trị
+  ADMIN_PIN: "",          // đặt mã PIN (vd "123456") để chặn người đoán ra tên admin; để trống = không hỏi PIN
+  MIN_MATCH: 2,           // số chữ tối thiểu phải khớp với tên trong danh sách
+  // Dán cấu hình Firebase vào đây để mọi người dùng chung dữ liệu. Để null = chỉ lưu trên máy này (chạy thử).
+  firebase: {
+    apiKey: "AIzaSyBI3DXvPxoL2JEcIFy9wbeuV1gB9T6OMFs",
+    authDomain: "homework-lunar.firebaseapp.com",
+    projectId: "homework-lunar",
+    storageBucket: "homework-lunar.firebasestorage.app",
+    messagingSenderId: "939241650118",
+    appId: "1:939241650118:web:0dd50bf79610a5dea164c7"
+  }
+  /* ví dụ:
+  firebase: { apiKey:"...", authDomain:"xxx.firebaseapp.com", projectId:"xxx", appId:"..." }
+  */
+};
+
+const STUDENTS = ["Đào Công Lê Duy","Đỗ Nguyễn Hoàng Thơ","Huỳnh Hải My","Lê Ngọc Thiên Hồng","Lê Nguyễn Bảo Khang","Lê Nguyễn Hải Vân","Lê Phúc Tấn","Ngô Nguyễn Bảo An","Nguyễn Bảo Vy","Nguyễn Gia Bảo","Nguyễn Hoài Thảo","Nguyễn Ngọc Quỳnh Như","Nguyễn Ngọc Thảo Phương","Nguyễn Ngọc Tuyết","Nguyễn Nhật Nam","Nguyễn Phan Cát Tường","Nguyễn Thành Luân","Nguyễn Thanh Trúc","Nguyễn Thị Anh","Nguyễn Tuấn Dũng","Nguyễn Tuấn Khôi","Phạm Hà Ngọc Bích","Phạm Ngọc Quế Minh","Phạm Nguyễn Hồng Lan","Phạm Nguyễn Thiên Phúc","Phạm Trần Tâm Nguyên","Trần Bảo Ngọc","Trần Cao Tiến","Trần Minh Khôi","Trần Ngọc Khánh An","Trần Ngọc Quỳnh Trâm","Trần Thanh Sang","Trịnh Hoàng Phát","Trịnh Hoàng Phong","Võ Lâm Kim Thương"];
+const DEFAULT_SUBJECTS = ["Toán","Ngữ văn","Tiếng Anh","Vật lí","Hóa học","Sinh học","Lịch sử","Địa lí","Tin học"];
+
+/* ===================== TIỆN ÍCH ===================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/\s+/g, " ").trim();
+
+function findStudent(input) {
+  const words = [...new Set(norm(input).split(" ").filter(Boolean))];
+  if (!words.length) return null;
+  const need = Math.min(CONFIG.MIN_MATCH, words.length);
+  let best = null, bestN = 0;
+  STUDENTS.forEach(st => {
+    const sw = new Set(norm(st).split(" "));
+    const n = words.filter(w => sw.has(w)).length;
+    if (n >= need && n > bestN) { best = st; bestN = n; }
+  });
+  return best;
+}
+
+/* ===================== LƯU TRỮ ===================== */
+let store, cloud = false;
+(function initStore() {
+  if (CONFIG.firebase && typeof firebase !== "undefined") {
+    firebase.initializeApp(CONFIG.firebase);
+    const fs = firebase.firestore();
+    cloud = true;
+    store = {
+      sub: (c, cb) => fs.collection(c).onSnapshot(s => cb(s.docs.map(d => ({ ...d.data(), id: d.id })))),
+      put: (c, o) => fs.collection(c).doc(o.id).set(o),
+      del: (c, id) => fs.collection(c).doc(id).delete()
+    };
+  } else {
+    const subs = {};
+    const get = c => { try { return JSON.parse(localStorage.getItem("lh_" + c) || "[]"); } catch (e) { return []; } };
+    const set = (c, a) => { localStorage.setItem("lh_" + c, JSON.stringify(a)); (subs[c] || []).forEach(f => f(get(c))); };
+    store = {
+      sub: (c, cb) => { (subs[c] = subs[c] || []).push(cb); cb(get(c)); },
+      put: (c, o) => { set(c, get(c).filter(x => x.id !== o.id).concat(o)); return Promise.resolve(); },
+      del: (c, id) => { set(c, get(c).filter(x => x.id !== id)); return Promise.resolve(); }
+    };
+  }
+})();
+
+/* ===================== ĐỌC ĐỀ TỪ VĂN BẢN ===================== */
+const HELP = `Câu 1: Thủ đô của Việt Nam là gì?
+A. Huế
+B. Hà Nội
+C. Đà Nẵng
+D. Cần Thơ
+Đáp án: B
+
+Câu 2: Xét các phát biểu sau về nước:
+a) Nước sôi ở 100°C ở áp suất thường = Đ
+b) Nước đá nặng hơn nước lỏng = S
+c) Nước là hợp chất = Đ
+d) Nước không có thể tích = S`;
+
+function parse(text) {
+  const qs = [], errors = [];
+  let cur = null, m;
+  String(text).split(/\r?\n/).forEach(raw => {
+    const l = raw.trim();
+    if (!l) return;
+    if ((m = l.match(/^C[âa]u\s*\d*\s*[:.)]\s*(.*)$/i))) { cur = { q: m[1], opts: [], sts: [], ans: null }; qs.push(cur); }
+    else if (!cur) return;
+    else if ((m = l.match(/^([A-D])[.)]\s*(.*)$/))) cur.opts.push({ k: m[1], t: m[2] });
+    else if ((m = l.match(/^([a-d])[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S|s)$/))) cur.sts.push({ k: m[1], t: m[2], v: m[3].toUpperCase() === "Đ" });
+    else if ((m = l.match(/^(?:Đáp án|Dap an|ĐA|DA)\s*[:.]\s*([A-Da-d])/i))) cur.ans = m[1].toUpperCase();
+    else cur.q += " " + l;
+  });
+  const ok = [];
+  qs.forEach((q, i) => {
+    if (q.sts.length >= 2) ok.push(q);
+    else if (q.opts.length >= 2 && q.ans && q.opts.some(o => o.k === q.ans)) ok.push(q);
+    else errors.push("Câu " + (i + 1) + " thiếu lựa chọn hoặc đáp án");
+  });
+  return { qs: ok, errors };
+}
+
+function grade(qs, A) {
+  let sc = 0, right = 0;
+  qs.forEach((q, i) => {
+    if (q.sts.length) {
+      const c = q.sts.filter(s => A[i + s.k] === s.v).length, n = q.sts.length;
+      sc += n === 4 ? [0, .1, .25, .5, 1][c] : c / n;
+      if (c === n) right++;
+    } else if (A[i] === q.ans) { sc++; right++; }
+  });
+  return { score: Math.round(sc / qs.length * 100) / 10, right };
+}
+
+/* ===================== TRẠNG THÁI ===================== */
+const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false };
+
+function login() {
+  const v = $("nm").value.trim();
+  if (!v) return;
+  if (norm(v) === norm(CONFIG.ADMIN)) {
+    if (CONFIG.ADMIN_PIN && prompt("Nhập mã PIN quản trị:") !== CONFIG.ADMIN_PIN) { $("err").textContent = "Sai mã PIN."; return; }
+    S.user = CONFIG.ADMIN; S.admin = true;
+  } else {
+    const st = findStudent(v);
+    if (!st) { $("err").textContent = "Tên này không có trong danh sách lớp 11B02. Hãy nhập lại họ tên."; return; }
+    S.user = st; S.admin = false;
+  }
+  $("login").hidden = true; $("app").hidden = false;
+  $("who").innerHTML = `<span>${esc(S.user)}${S.admin ? " (quản trị)" : ""}</span><button onclick="location.reload()">Đổi người</button>`;
+  start();
+}
+$("nm").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+
+function start() {
+  if (!S.started) {
+    S.started = true;
+    store.sub("subjects", a => {
+      S.subjects = a.sort((x, y) => (x.o || 0) - (y.o || 0));
+      if (S.admin && !a.length && !S.seeded) { S.seeded = true; DEFAULT_SUBJECTS.forEach((n, i) => store.put("subjects", { id: uid(), name: n, o: i })); }
+      renderSide(); if (S.view === "list") renderMain();
+    });
+    store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => (x.time || 0) - (y.time || 0)); renderSide(); if (S.view === "list") renderMain(); });
+    store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); });
+  }
+  go("home");
+}
+
+/* ===================== GIAO DIỆN ===================== */
+function go(v) { S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0); }
+function openSub(id) { S.sub = id; go("list"); }
+
+function renderSide() {
+  $("side").innerHTML = `<div class="card">
+    <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
+    (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${S.quizzes.filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
+    (S.admin ? `<hr><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+}
+
+function renderMain() {
+  const m = $("main");
+  if (S.view === "home") {
+    m.innerHTML = `<div class="card"><h2>Chào ${esc(S.user)}</h2>
+      <p>Trang web thuộc quyền sở hữu của lớp 11B02 do Lunar quản lý. Quyền sử dụng chỉ thuộc về lớp 11B02 và các lớp được cho phép. Hãy liên hệ lớp 11B02 nếu muốn được sử dụng.</p>
+      <p>Chọn môn học ở thanh bên trái, bấm vào bài rồi làm. Nộp bài xong sẽ có điểm và xem được câu nào đúng, câu nào sai.</p>
+      ${S.admin && !cloud ? `<p class="tag-no">Đang ở chế độ thử: dữ liệu chỉ lưu trên máy này. Hãy gắn Firebase trong phần CONFIG để cả lớp dùng chung.</p>` : ""}</div>`;
+  } else if (S.view === "list") {
+    const sub = S.subjects.find(s => s.id === S.sub);
+    if (!sub) return go("home");
+    const qz = S.quizzes.filter(q => q.subject === sub.id);
+    m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">+ Thêm bài</button><button class="g" onclick="renameSub()">Đổi tên môn</button><button class="d" onclick="delSub()">Xóa môn</button></div>` : ""}</div>` +
+      (qz.length ? qz.map(q => {
+        const n = parse(q.text).qs.length;
+        return `<div class="card row sp"><div><b>${esc(q.title)}</b><div class="mu">${n} câu</div></div>
+          <div class="row"><button onclick="take('${q.id}')">Làm bài</button>${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
+      }).join("") : `<div class="card mu">Môn này chưa có bài nào.${S.admin ? " Bấm “Thêm bài” để upload bài đầu tiên." : ""}</div>`);
+  } else if (S.view === "take") {
+    m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.</div></div>` +
+      S.qs.map((q, i) => `<div class="card"><b>Câu ${i + 1}.</b> ${esc(q.q)}` +
+        (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${esc(s.t)}</span><span><label><input type="radio" name="q${i}${s.k}" value="1"> Đúng</label><label><input type="radio" name="q${i}${s.k}" value="0"> Sai</label></span></div>`).join("")
+          : q.opts.map(o => `<label class="op"><input type="radio" name="q${i}" value="${o.k}"> ${o.k}. ${esc(o.t)}</label>`).join("")) + `</div>`).join("") +
+      `<div class="row"><button onclick="submitQuiz()">Nộp bài</button><button class="g" onclick="go('list')">Thoát</button></div>`;
+  } else if (S.view === "review") {
+    const { score, right } = grade(S.qs, S.A);
+    m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="score">${score}/10</div>
+      <div class="mu">Đúng hoàn toàn ${right}/${S.qs.length} câu. ${S.admin ? "(Quản trị: kết quả không được lưu vào bảng.)" : "Kết quả đã lưu vào bảng bên dưới."}</div>
+      <p><label><input type="checkbox" ${S.onlyWrong ? "checked" : ""} onchange="S.onlyWrong=this.checked;renderMain()"> Chỉ hiện câu sai</label></p>
+      <div class="row"><button onclick="take('${S.quiz.id}')">Làm lại</button><button class="g" onclick="go('list')">Về danh sách bài</button></div></div>` +
+      S.qs.map((q, i) => reviewQ(q, i)).join("");
+  } else if (S.view === "edit") {
+    const q = S.quiz;
+    m.innerHTML = `<div class="card"><h2>${q.id ? "Sửa bài" : "Thêm bài mới"}</h2>
+      <p><label>Tên bài<input type="text" id="et" value="${esc(q.title)}"></label></p>
+      <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
+      <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
+      <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
+      <p id="ep" class="mu"></p>
+      <div class="row"><button onclick="saveQuiz()">Lưu bài</button><button class="g" onclick="go('list')">Hủy</button></div></div>
+      <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) kết thúc bằng “= Đ” hoặc “= S”. Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.</div></div>`;
+    $("ef").onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $("ex").value = r.result; if (!$("et").value) $("et").value = f.name.replace(/\.txt$/i, ""); prevQ(); }; r.readAsText(f, "utf-8"); } };
+    prevQ();
+  }
+}
+
+function reviewQ(q, i) {
+  const A = S.A; let ok, body;
+  if (q.sts.length) {
+    ok = q.sts.every(s => A[i + s.k] === s.v);
+    body = q.sts.map(s => {
+      const a = A[i + s.k], good = a === s.v, lab = x => x === undefined ? "bỏ trống" : x ? "Đúng" : "Sai";
+      return `<div class="st"><span>${s.k}) ${esc(s.t)}</span><span class="${good ? "tag-ok" : "tag-no"}">${good ? "✓" : "✗"} Bạn chọn: ${lab(a)}${good ? "" : " · Đáp án: " + lab(s.v)}</span></div>`;
+    }).join("");
+  } else {
+    ok = A[i] === q.ans;
+    body = q.opts.map(o => {
+      const c = o.k === q.ans ? "right" : (o.k === A[i] ? "wrong" : "");
+      return `<div class="op ${c}">${o.k}. ${esc(o.t)} ${o.k === q.ans ? `<span class="tag-ok">✓ đáp án đúng</span>` : o.k === A[i] ? `<span class="tag-no">✗ bạn chọn</span>` : ""}</div>`;
+    }).join("") + (A[i] === undefined ? `<div class="tag-no">Bạn chưa trả lời câu này.</div>` : "");
+  }
+  if (S.onlyWrong && ok) return "";
+  return `<div class="card q ${ok ? "ok" : "bad"}"><b>Câu ${i + 1}.</b> ${esc(q.q)} <span class="${ok ? "tag-ok" : "tag-no"}">${ok ? "Đúng" : "Sai"}</span>${body}</div>`;
+}
+
+function renderBoard() {
+  const rows = S.results.slice(0, 200);
+  $("board").innerHTML = `<h3>Bảng kết quả</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th></th>" : ""}</tr>` +
+    rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
+}
+
+/* ===================== LÀM BÀI ===================== */
+function take(id) {
+  S.quiz = S.quizzes.find(q => q.id === id);
+  if (!S.quiz) return go("list");
+  S.qs = parse(S.quiz.text).qs; S.A = {}; S.onlyWrong = false;
+  S.view = "take"; renderSide(); renderMain(); window.scrollTo(0, 0);
+}
+function submitQuiz() {
+  const A = {}; let miss = 0;
+  S.qs.forEach((q, i) => {
+    if (q.sts.length) q.sts.forEach(s => { const r = document.querySelector(`input[name="q${i}${s.k}"]:checked`); if (r) A[i + s.k] = r.value === "1"; else miss++; });
+    else { const r = document.querySelector(`input[name="q${i}"]:checked`); if (r) A[i] = r.value; else miss++; }
+  });
+  if (miss && !confirm(`Còn ${miss} ý/câu chưa trả lời. Vẫn nộp bài?`)) return;
+  S.A = A;
+  const { score } = grade(S.qs, A);
+  if (!S.admin) store.put("results", { id: uid(), name: S.user, quiz: S.quiz.title, quizId: S.quiz.id, score, time: Date.now() });
+  S.view = "review"; renderMain(); window.scrollTo(0, 0);
+}
+
+/* ===================== QUẢN TRỊ ===================== */
+function addSub() { const n = prompt("Tên môn học mới:"); if (n && n.trim()) store.put("subjects", { id: uid(), name: n.trim(), o: Date.now() }); }
+function renameSub() { const s = S.subjects.find(x => x.id === S.sub); const n = prompt("Tên mới:", s.name); if (n && n.trim()) store.put("subjects", { ...s, name: n.trim() }); }
+function delSub() {
+  const s = S.subjects.find(x => x.id === S.sub);
+  if (!confirm(`Xóa môn “${s.name}” và tất cả bài trong môn này?`)) return;
+  S.quizzes.filter(q => q.subject === s.id).forEach(q => store.del("quizzes", q.id));
+  store.del("subjects", s.id); S.sub = null; go("home");
+}
+function editQuiz(id) {
+  S.quiz = id ? { ...S.quizzes.find(q => q.id === id) } : { id: "", subject: S.sub, title: "", text: "" };
+  S.view = "edit"; renderMain(); window.scrollTo(0, 0);
+}
+function prevQ() {
+  const r = parse($("ex").value);
+  $("ep").innerHTML = `Đọc được <b>${r.qs.length}</b> câu hợp lệ.` + (r.errors.length ? ` <span class="tag-no">${esc(r.errors.join("; "))}</span>` : "");
+}
+function saveQuiz() {
+  const title = $("et").value.trim(), text = $("ex").value, r = parse(text);
+  if (!title) return alert("Hãy nhập tên bài.");
+  if (!r.qs.length) return alert("Chưa có câu hỏi hợp lệ nào. Xem “Cách viết đề” bên dưới.");
+  if (r.errors.length && !confirm("Có câu bị lỗi và sẽ bị bỏ qua:\n" + r.errors.join("\n") + "\nVẫn lưu?")) return;
+  S.sub = $("es").value;
+  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, time: S.quiz.time || Date.now() }).then(() => go("list"));
+}
+function delQuiz(id) { if (confirm("Xóa bài này?")) store.del("quizzes", id); }
+function delRes(id) { if (confirm("Xóa dòng kết quả này?")) store.del("results", id); }
+</script>
+</body>
+</html>
