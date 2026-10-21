@@ -47,8 +47,16 @@ h2,h3{margin:.2em 0 .5em}
 .st label{margin-left:10px;white-space:nowrap}
 .q.ok{border-left:6px solid var(--ok)}
 .q.bad{border-left:6px solid var(--no)}
-.op.right{background:var(--okb);border-color:var(--ok)}
-.op.wrong{background:var(--nob);border-color:var(--no)}
+.op.right{background:linear-gradient(135deg,var(--okb),color-mix(in srgb,var(--okb) 72%,var(--card)));border:1px solid var(--ok);box-shadow:inset 4px 0 0 var(--ok)}
+.op.wrong{background:linear-gradient(135deg,var(--nob),color-mix(in srgb,var(--nob) 72%,var(--card)));border:1px solid var(--no);box-shadow:inset 4px 0 0 var(--no)}
+.st .tf-options{display:inline-flex;gap:6px;flex-wrap:wrap}
+.st .tf-choice{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);font-weight:600;cursor:pointer;transition:transform .15s,border-color .15s,background .15s;white-space:nowrap}
+.st .tf-choice:hover{transform:translateY(-1px);border-color:var(--pr)}
+.st .tf-choice input{accent-color:var(--pr);margin:0;width:16px;height:16px}
+.st .tf-choice:has(input:checked){border-color:var(--pr);background:color-mix(in srgb,var(--pr) 12%,var(--card));box-shadow:0 0 0 2px color-mix(in srgb,var(--pr) 12%,transparent)}
+.st .tf-choice.yes:has(input:checked){border-color:var(--ok);background:var(--okb);color:var(--ok)}
+.st .tf-choice.no:has(input:checked){border-color:var(--no);background:var(--nob);color:var(--no)}
+@media(max-width:520px){.st{gap:8px;align-items:flex-start}.st .tf-options{width:100%}.st .tf-choice{flex:1;justify-content:center}}
 .tag-ok{color:var(--ok);font-weight:700}.tag-no{color:var(--no);font-weight:700}
 .score{font-size:2rem;font-weight:700}
 .tw{overflow-x:auto}
@@ -346,7 +354,11 @@ function renderLive() {
 
 /* ===================== AI PHÂN TÍCH ĐÁP ÁN ===================== */
 // Key API do quản trị (dev) nhập ở mục "⚙ Cài đặt AI", lưu trong Firestore: settings/ai (cấu hình) + secrets/ai (key).
-const AI_DEF = { gemini: { name: "Google Gemini", model: "gemini-2.5-flash" }, openai: { name: "OpenAI", model: "gpt-4o-mini" }, claude: { name: "Anthropic Claude", model: "claude-haiku-5-5" } };
+const AI_DEF = {
+  gemini: { name: "Google Gemini", model: "gemini-2.5-flash", fallback: "gemini-2.0-flash" },
+  openai: { name: "OpenAI", model: "gpt-4o-mini", fallback: "gpt-4.1-mini" },
+  claude: { name: "Anthropic Claude", model: "claude-haiku-5-5", fallback: "claude-3-5-haiku-latest" }
+};
 const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng.";
 const aiReady = () => !!(S.ai && S.ai.enabled && S.ai.hasKey && AI_DEF[S.ai.provider]);
 const aiMd = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ").replace(/\n/g, "<br>");
@@ -359,6 +371,25 @@ function aiQText(q, i) {
   return t;
 }
 async function aiCall(system, user, o) {
+  if (!o) {
+    const sec = await store.get("secrets", "ai");
+    o = { provider: S.ai.provider, model: S.ai.model, fallbackModel: S.ai.fallbackModel, key: sec && sec.key };
+  }
+  const primary = o.model || AI_DEF[o.provider].model;
+  const fallback = String(o.fallbackModel || (S.ai && S.ai.provider === o.provider ? S.ai.fallbackModel : "") || AI_DEF[o.provider].fallback || "").trim();
+  try {
+    return await aiCallSingle(system, user, { ...o, model: primary });
+  } catch (primaryError) {
+    if (!fallback || fallback === primary) throw primaryError;
+    try {
+      const result = await aiCallSingle(system, user, { ...o, model: fallback });
+      return `ℹ️ Model chính (${primary}) gặp lỗi; đã tự chuyển sang model dự phòng (${fallback}).\\n\\n${result}`;
+    } catch (fallbackError) {
+      throw new Error(`Model chính ${primary} lỗi: ${primaryError.message || primaryError}. Model dự phòng ${fallback} cũng lỗi: ${fallbackError.message || fallbackError}`);
+    }
+  }
+}
+async function aiCallSingle(system, user, o) {
   if (!o) { const sec = await store.get("secrets", "ai"); o = { provider: S.ai.provider, model: S.ai.model, key: sec && sec.key }; }
   if (!o.key) throw new Error("Chưa có key API.");
   const model = o.model || AI_DEF[o.provider].model, J = { "Content-Type": "application/json" };
@@ -414,8 +445,10 @@ function renderAiSet() {
   const c = S.ai || {}, p = AI_DEF[c.provider] ? c.provider : "gemini";
   return `<div class="card"><h2>⚙ Cài đặt AI (dev)</h2>
     <p class="mu">Trạng thái: <span id="ast">${aiStatus()}</span></p>
-    <p><label>Nhà cung cấp<select id="ap" onchange="$('am').value=AI_DEF[this.value].model">${Object.entries(AI_DEF).map(([k, v]) => `<option value="${k}" ${k === p ? "selected" : ""}>${v.name}</option>`).join("")}</select></label></p>
-    <p><label>Model (sửa được nếu nhà cung cấp đổi tên model)<input type="text" id="am" value="${esc(c.model || AI_DEF[p].model)}"></label></p>
+    <p><label>Nhà cung cấp<select id="ap" onchange="$('am').value=AI_DEF[this.value].model;$('afm').value=AI_DEF[this.value].fallback">${Object.entries(AI_DEF).map(([k, v]) => `<option value="${k}" ${k === p ? "selected" : ""}>${v.name}</option>`).join("")}</select></label></p>
+    <p><label>Model chính<input type="text" id="am" value="${esc(c.model || AI_DEF[p].model)}"></label></p>
+    <p><label>Model dự phòng (cùng nhà cung cấp, dùng khi model chính lỗi)<input type="text" id="afm" value="${esc(c.fallbackModel || AI_DEF[p].fallback)}" placeholder="${esc(AI_DEF[p].fallback)}"></label></p>
+    <p class="mu">Fallback dùng chung API key của nhà cung cấp hiện tại. Nếu cả hai model lỗi, ứng dụng sẽ báo lỗi rõ ràng.</p>
     <p><label>API key<input type="password" id="ak" placeholder="${c.hasKey ? "Để trống = giữ key đang lưu" : "Dán API key vào đây"}" autocomplete="off"></label></p>
     <p><label><input type="checkbox" id="ae" ${c.enabled !== false ? "checked" : ""}> Bật AI cho học sinh</label></p>
     <p id="amsg" class="mu"></p>
@@ -423,11 +456,11 @@ function renderAiSet() {
     <div class="card mu"><b>Lưu ý bảo mật</b><br>Web chạy hoàn toàn ở trình duyệt nên khi học sinh bấm “Phân tích”, trình duyệt của em ấy phải đọc được key. Vì vậy hãy dùng key có giới hạn (ví dụ key Gemini miễn phí chưa gắn thẻ, hoặc đặt hạn mức chi tiêu thấp) và đừng dùng key chính của bạn.</div>`;
 }
 async function aiSave() {
-  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, k = $("ak").value.trim(), old = S.ai || {}, msg = $("amsg");
+  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, fallbackModel = $("afm").value.trim() || AI_DEF[p].fallback, k = $("ak").value.trim(), old = S.ai || {}, msg = $("amsg");
   if (!k && !old.hasKey) { msg.innerHTML = `<span class="tag-no">Hãy dán API key.</span>`; return; }
   if (!k && old.provider && old.provider !== p) { msg.innerHTML = `<span class="tag-no">Đổi nhà cung cấp thì cần dán key mới.</span>`; return; }
   msg.textContent = "Đang lưu…";
-  const doc = { id: "ai", provider: p, model, enabled: $("ae").checked, hasKey: true, last4: k ? k.slice(-4) : (old.last4 || ""), time: Date.now() };
+  const doc = { id: "ai", provider: p, model, fallbackModel, enabled: $("ae").checked, hasKey: true, last4: k ? k.slice(-4) : (old.last4 || ""), time: Date.now() };
   try {
     if (k) await store.put("secrets", { id: "ai", key: k, time: Date.now() });
     await store.put("settings", doc);
@@ -435,12 +468,12 @@ async function aiSave() {
   } catch (e) { msg.innerHTML = `<span class="tag-no">Lưu thất bại: ${esc(e.message || e)}. Kiểm tra Firestore Rules cho settings và secrets.</span>`; }
 }
 async function aiTest() {
-  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, msg = $("amsg");
+  const p = $("ap").value, model = $("am").value.trim() || AI_DEF[p].model, fallbackModel = $("afm").value.trim() || AI_DEF[p].fallback, msg = $("amsg");
   msg.textContent = "Đang thử kết nối…";
   try {
     let key = $("ak").value.trim();
     if (!key) { const sec = await store.get("secrets", "ai"); key = sec && sec.key; }
-    const t = await aiCall("Trả lời đúng một từ.", "Hãy nói: OK", { provider: p, model, key });
+    const t = await aiCall("Trả lời đúng một từ.", "Hãy nói: OK", { provider: p, model, fallbackModel, key });
     msg.innerHTML = `<span class="tag-ok">Kết nối được.</span> AI trả lời: ${esc(t.slice(0, 80))}`;
   } catch (e) { msg.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
 }
@@ -485,7 +518,7 @@ function renderMain() {
   } else if (S.view === "take") {
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.</div></div>` +
       S.qs.map((q, i) => `<div class="card"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
-        (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${R(s.t)}</span><span><label><input type="radio" name="q${i}${s.k}" value="1"> Đúng</label><label><input type="radio" name="q${i}${s.k}" value="0"> Sai</label></span></div>`).join("")
+        (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${R(s.t)}</span><span class="tf-options"><label class="tf-choice yes"><input type="radio" name="q${i}${s.k}" value="1"> <span>✓ Đúng</span></label><label class="tf-choice no"><input type="radio" name="q${i}${s.k}" value="0"> <span>✕ Sai</span></label></span></div>`).join("")
           : q.opts.map(o => `<label class="op"><input type="radio" name="q${i}" value="${o.k}"> ${o.k}. ${R(o.t)}</label>`).join("")) + `</div>`).join("") +
       `<div class="row"><button onclick="submitQuiz()">Nộp bài</button><button class="g" onclick="go('list')">Thoát</button></div>`;
   } else if (S.view === "review") {
