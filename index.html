@@ -23,6 +23,9 @@ header h1{margin:0;font-size:1.35rem;font-weight:700;display:flex;align-items:ce
 button{background:var(--pr);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--moon);outline-offset:2px}
 .ai-btn{display:inline-flex;align-items:center;gap:8px}
+.warn{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:100;max-width:min(92vw,520px);background:var(--no);color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 6px 24px #0005;font-weight:700;text-align:center;cursor:pointer;animation:wp .25s}
+@keyframes wp{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}
+.katex-display{margin:.4em 0;overflow-x:auto;overflow-y:hidden}
 button.g{background:transparent;color:var(--pr);border:1px solid var(--pr)}
 button.d{background:var(--no);color:#fff}
 header button{background:transparent;border:1px solid #fff8;color:#fff}
@@ -79,6 +82,9 @@ pre{background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto;font-siz
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/mhchem.min.js"></script>
 </head>
 <body>
 <header>
@@ -228,8 +234,18 @@ function grade(qs, A) {
 const IMG_RE = /\[(?:ảnh|anh|img)\s*:\s*([^\]]+?)\s*\]/gi;
 const ikey = id => String(id).trim().replace(/[^\w-]/g, "_");
 const isUrl = v => /^https?:\/\//i.test(v);
+const MATH_RE = /\$\$([\s\S]+?)\$\$|\$(?!\s)([^$\n]*?[^\s$])\$/g;
+function mathHtml(src, disp) {
+  try { if (window.katex) return katex.renderToString(src, { throwOnError: false, displayMode: disp, output: "html" }); } catch (e) {}
+  return esc(disp ? "$$" + src + "$$" : "$" + src + "$");
+}
 function rt(text, imgs) {
-  return esc(text).replace(IMG_RE, (_, id) => {
+  let out = "", last = 0, m; text = String(text); MATH_RE.lastIndex = 0;
+  while ((m = MATH_RE.exec(text))) { out += rtp(text.slice(last, m.index), imgs); out += mathHtml(m[1] !== undefined ? m[1] : m[2], m[1] !== undefined); last = m.index + m[0].length; }
+  return out + rtp(text.slice(last), imgs);
+}
+function rtp(text, imgs) {
+  return esc(text).replace(/-&gt;/g, "→").replace(/&lt;=&gt;/g, "⇌").replace(IMG_RE, (_, id) => {
     id = id.trim();
     const src = isUrl(id.replace(/&amp;/g, "&")) ? id : (imgs || {})[ikey(id)];
     return src ? `<img class="qi" src="${src}" alt="Hình minh họa" loading="lazy">` : `<span class="tag-no">[thiếu ảnh ${id}]</span>`;
@@ -305,7 +321,7 @@ function start() {
       renderSide(); if (S.view === "list") renderMain();
     });
     store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => (x.time || 0) - (y.time || 0)); renderSide(); if (S.view === "list") renderMain(); });
-    store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); });
+    store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); if (S.view === "stats") renderMain(); });
     store.sub("settings", a => {
       S.ai = a.find(x => x.id === "ai") || null;
       if (S.view === "aiset" && $("ast")) $("ast").innerHTML = aiStatus(); else if (S.view === "review") renderMain();
@@ -324,7 +340,7 @@ function start() {
 // Thoát giữa chừng / tắt tab / mất mạng: không báo nữa, quản trị vẫn thấy tối đa LIVE_TTL (5 phút) kể từ tín hiệu cuối rồi tự ẩn.
 const LIVE_TTL = 5 * 60 * 1000;
 const LIVE_BEAT = 2 * 60 * 1000;
-const LIVE_IDLE = { state: "idle", quiz: null, subject: null, since: null };
+const LIVE_IDLE = { state: "idle", quiz: null, subject: null, since: null, sw: 0 };
 const LIVE = { id: null, d: { state: "idle", quiz: null, subject: null, since: null } };
 function liveSend(patch) {
   if (S.admin || !S.user || !LIVE.id) return;
@@ -344,7 +360,7 @@ function renderLive() {
     const x = doing.get(n);
     if (x) {
       const age = Date.now() - (x.last || 0), fresh = age < LIVE_BEAT * 1.5, left = Math.max(1, Math.ceil((LIVE_TTL - age) / 60000));
-      return `<tr><td>${fresh ? `<span class="tag-ok">✓</span>` : `<span title="Đã thoát hoặc mất kết nối" style="color:#e0a100;font-weight:700">⏳</span>`}</td><td><b>${esc(n)}</b></td><td>${esc(x.quiz || "")}${x.subject ? ` <small class="mu">· ${esc(x.subject)}</small>` : ""}${fresh ? "" : ` <small class="mu">· đã thoát/mất kết nối, tự ẩn sau ~${left} phút</small>`}</td></tr>`;
+      return `<tr><td>${fresh ? `<span class="tag-ok">✓</span>` : `<span title="Đã thoát hoặc mất kết nối" style="color:#e0a100;font-weight:700">⏳</span>`}</td><td><b>${esc(n)}</b></td><td>${esc(x.quiz || "")}${x.subject ? ` <small class="mu">· ${esc(x.subject)}</small>` : ""}${x.sw ? ` <small class="tag-no">· rời tab ${x.sw} lần</small>` : ""}${fresh ? "" : ` <small class="mu">· đã thoát/mất kết nối, tự ẩn sau ~${left} phút</small>`}</td></tr>`;
     }
     return `<tr><td class="mu">–</td><td class="mu">${esc(n)}</td><td></td></tr>`;
   }).join("");
@@ -362,7 +378,7 @@ const AI_DEF = {
   openai: { name: "OpenAI", model: "gpt-4o-mini", fallback: "gpt-4.1-mini" },
   claude: { name: "Anthropic Claude", model: "claude-haiku-5-5", fallback: "claude-3-5-haiku-latest" }
 };
-const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng.";
+const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng. Viết công thức bằng ký hiệu thường (x², √, H₂O), không dùng LaTeX.";
 const aiReady = () => !!(S.ai && S.ai.enabled && S.ai.hasKey && AI_DEF[S.ai.provider]);
 const aiMd = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ").replace(/\n/g, "<br>");
 const plain = t => String(t).replace(IMG_RE, "[hình minh họa - AI không xem được]");
@@ -517,7 +533,7 @@ Quy tắc:
 - Mỗi câu bắt đầu bằng "Câu N:". Câu 4 phương án phải có dòng "Đáp án: X". Câu đúng/sai có các ý a) b) c) d), mỗi ý kết thúc bằng " = Đ" hoặc " = S".
 - Mọi câu phải có đáp án: hãy tự giải để chọn đáp án đúng nhất (dấu khoanh/tô trong ảnh chỉ để tham khảo, có thể là bài làm sai của học sinh). Câu nào không chắc chắn thì ghi số câu vào GHICHU.
 - Phần đề dẫn nhiều dòng (gạch đầu dòng, mô tả thí nghiệm...) viết liền ngay dưới "Câu N:", không chèn dòng trống.
-- Công thức, ký hiệu dùng Unicode (H₂O, CO₂, x², √, °C). Bảng số liệu chuyển thành chữ.
+- Công thức Toán/Lý/Hóa viết bằng LaTeX trong dấu $...$ (ví dụ $x^2$, $\\frac{a}{b}$, $\\sqrt{x}$); công thức và phương trình hóa học viết dạng $\\ce{2H2 + O2 -> 2H2O}$, $\\ce{H2SO4}$. Bảng số liệu chuyển thành chữ.
 - Chỗ có hình vẽ, sơ đồ, đồ thị cần để làm bài: đặt [ảnh:h1], [ảnh:h2]... đúng vị trí trong câu hỏi hoặc trong phương án (ví dụ "A. [ảnh:h3]"). Ở phần ===ANH=== mỗi hình một dòng: id | số thứ tự ảnh | ymin,xmin,ymax,xmax (tọa độ chuẩn hóa 0–1000 so với ảnh, ôm sát hình, không lấy chữ của đề).
 - Bỏ qua câu bị cắt dở ở mép trang, số trang, tiêu đề đầu trang.
 - Không có hình thì để trống phần ===ANH===. GHICHU: ghi ngắn gọn các câu không chắc chắn hoặc chữ khó đọc.`;
@@ -571,6 +587,90 @@ async function aiScan(files) {
   } catch (e) { st.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
 }
 
+/* ===================== BÀI LÀM DỞ + RỜI TAB ===================== */
+const WARN_FROM = 3; // từ lần rời tab thứ mấy thì hiện thông báo
+const SW = { away: false, tm: null };
+const dKey = () => "lh_draft_" + norm(S.user).replace(/\s+/g, "_") + "_" + S.quiz.id;
+const qSig = t => { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ":" + h; };
+function readAnswers() {
+  const A = {}; let miss = 0;
+  S.qs.forEach((q, i) => {
+    if (q.sts.length) q.sts.forEach(s => { const r = document.querySelector(`input[name="q${i}${s.k}"]:checked`); if (r) A[i + s.k] = r.value === "1"; else miss++; });
+    else { const r = document.querySelector(`input[name="q${i}"]:checked`); if (r) A[i] = r.value; else miss++; }
+  });
+  return { A, miss };
+}
+function applyAnswers() {
+  S.qs.forEach((q, i) => {
+    if (q.sts.length) q.sts.forEach(s => { const a = S.A[i + s.k]; if (a !== undefined) { const r = document.querySelector(`input[name="q${i}${s.k}"][value="${a ? 1 : 0}"]`); if (r) r.checked = true; } });
+    else if (S.A[i] !== undefined) { const r = document.querySelector(`input[name="q${i}"][value="${S.A[i]}"]`); if (r) r.checked = true; }
+  });
+}
+function saveDraft() {
+  if (!S.quiz || S.view !== "take") return;
+  try { localStorage.setItem(dKey(), JSON.stringify({ sig: qSig(S.quiz.text), qs: S.qs, A: S.A, sw: S.sw || 0, t: Date.now() })); } catch (e) {}
+}
+function loadDraft() {
+  try {
+    const d = JSON.parse(localStorage.getItem(dKey()) || "null");
+    if (d && d.sig === qSig(S.quiz.text) && Date.now() - d.t < 12 * 3600 * 1000 && Array.isArray(d.qs) && d.qs.length && d.A && Object.keys(d.A).length) return d;
+  } catch (e) {}
+  return null;
+}
+function clearDraft() { try { localStorage.removeItem(dKey()); } catch (e) {} }
+function onAnswer() { S.A = readAnswers().A; saveDraft(); }
+
+function warnToast(n) {
+  const msg = n >= 6 ? `Pls pls, gg đại đi, ôn mà còn cheat (${n} lần)` : n >= 4 ? `Stop cheating bruh (${n} lần)` : `Á à à, cheat vừa thôi :) (${n} lần)`;
+  let w = $("warn"); if (w) w.remove();
+  w = document.createElement("div"); w.id = "warn"; w.className = "warn"; w.setAttribute("role", "alert"); w.textContent = msg;
+  w.onclick = () => w.remove(); document.body.appendChild(w);
+  setTimeout(() => { if (w.parentNode) w.remove(); }, 6000);
+}
+function swLeave() {
+  if (S.view !== "take" || SW.away) return;
+  SW.away = true; S.sw = (S.sw || 0) + 1; saveDraft(); liveSend({ sw: S.sw });
+}
+function swBack() {
+  if (!SW.away) return;
+  SW.away = false;
+  if (S.view === "take" && S.sw >= WARN_FROM) warnToast(S.sw);
+}
+document.addEventListener("visibilitychange", () => document.hidden ? swLeave() : swBack());
+window.addEventListener("blur", () => { clearTimeout(SW.tm); SW.tm = setTimeout(() => { if (!document.hasFocus()) swLeave(); }, 600); });
+window.addEventListener("focus", () => { clearTimeout(SW.tm); swBack(); });
+
+/* ===================== THỐNG KÊ (QUẢN TRỊ) ===================== */
+function exportCsv() {
+  const rows = [["Họ tên", "Bài", "Điểm", "Thời gian", "Số lần rời tab"]].concat(S.results.slice().reverse().map(r => [r.name, r.quiz, r.score, new Date(r.time).toLocaleString("vi-VN"), r.sw || 0]));
+  const csv = "﻿" + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "ket-qua-lunar-homework.csv"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function renderStats() {
+  const RS = S.results, avg = a => a.reduce((x, y) => x + y, 0) / a.length, f1 = n => String(Math.round(n * 10) / 10).replace(".", ",");
+  const subj = id => (S.subjects.find(s => s.id === id) || {}).name || "";
+  if (!S.quizzes.length) return `<h2>Thống kê</h2><div class="card mu">Chưa có bài nào.</div>`;
+  if (!S.statQuiz || !S.quizzes.some(q => q.id === S.statQuiz)) S.statQuiz = S.quizzes[0].id;
+  const rowsQ = S.quizzes.map(q => {
+    const rs = RS.filter(r => r.quizId === q.id), sc = rs.map(r => r.score), who = new Set(rs.map(r => r.name));
+    return `<tr><td>${esc(q.title)} <small class="mu">· ${esc(subj(q.subject))}</small></td><td>${rs.length}</td><td>${who.size}/${STUDENTS.length}</td><td>${rs.length ? f1(avg(sc)) : "–"}</td><td>${rs.length ? Math.max(...sc) : "–"}</td><td>${rs.length ? Math.min(...sc) : "–"}</td></tr>`;
+  }).join("");
+  const q = S.quizzes.find(x => x.id === S.statQuiz), rs = RS.filter(r => r.quizId === q.id), withD = rs.filter(r => Array.isArray(r.wr) && r.n);
+  const pq = parse(q.text).qs, cnt = pq.map(() => 0);
+  withD.forEach(r => r.wr.forEach(i => { if (cnt[i] !== undefined) cnt[i]++; }));
+  const list = pq.map((p, i) => ({ i, c: cnt[i], t: plain(p.q).replace(/\s+/g, " ").slice(0, 110) })).sort((a, b) => b.c - a.c || a.i - b.i);
+  const did = new Set(rs.map(r => r.name)), not = STUDENTS.filter(n => !did.has(n));
+  const qrows = withD.length ? list.map(x => { const pct = Math.round(x.c / withD.length * 100); return `<tr><td><b>Câu ${x.i + 1}</b></td><td>${esc(x.t)}</td><td><div class="pb"><i style="width:${pct}%;background:var(--no)"></i></div></td><td>${x.c}/${withD.length} (${pct}%)</td></tr>`; }).join("") : "";
+  return `<div class="row sp"><h2>Thống kê</h2><button class="g" onclick="exportCsv()">Xuất Excel (CSV)</button></div>
+    <div class="card"><b>Tổng quan</b><div class="mu">${RS.length} lượt làm · ${new Set(RS.map(r => r.name)).size}/${STUDENTS.length} học sinh đã làm${RS.length ? " · điểm trung bình " + f1(avg(RS.map(r => r.score))) : ""}</div>
+      <div class="tw"><table><tr><th>Bài</th><th>Lượt làm</th><th>Học sinh</th><th>Điểm TB</th><th>Cao nhất</th><th>Thấp nhất</th></tr>${rowsQ}</table></div></div>
+    <div class="card"><p><label>Xem chi tiết bài<select onchange="S.statQuiz=this.value;renderMain()">${S.quizzes.map(x => `<option value="${x.id}" ${x.id === q.id ? "selected" : ""}>${esc(x.title)} (${esc(subj(x.subject))})</option>`).join("")}</select></label></p>
+      <b>Câu sai nhiều nhất</b> <span class="mu">(tính theo lượt làm; số câu theo thứ tự gốc trong đề)</span>
+      ${withD.length ? `<div class="tw"><table><tr><th>Câu</th><th>Nội dung</th><th></th><th>Sai</th></tr>${qrows}</table></div>` : `<p class="mu">Chưa có dữ liệu. Thống kê câu sai chỉ tính các lượt làm sau khi cập nhật bản này.</p>`}
+      <p><b>Chưa làm bài này (${not.length}):</b> <span class="mu">${not.length ? not.map(esc).join(", ") : "Cả lớp đã làm"}</span></p></div>`;
+}
+
 /* ===================== GIAO DIỆN ===================== */
 function go(v) {
   S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0);
@@ -581,7 +681,7 @@ function renderSide() {
   $("side").innerHTML = `<div class="card">
     <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
     (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${S.quizzes.filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
-    (S.admin ? `<hr><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
 }
 
 function renderMain() {
@@ -607,6 +707,7 @@ function renderMain() {
         (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${R(s.t)}</span><span class="tf-options"><label class="tf-choice yes"><input type="radio" name="q${i}${s.k}" value="1"> <span>✓ Đúng</span></label><label class="tf-choice no"><input type="radio" name="q${i}${s.k}" value="0"> <span>✕ Sai</span></label></span></div>`).join("")
           : q.opts.map(o => `<label class="op"><input type="radio" name="q${i}" value="${o.k}"> ${o.k}. ${R(o.t)}</label>`).join("")) + `</div>`).join("") +
       `<div class="row"><button onclick="submitQuiz()">Nộp bài</button><button class="g" onclick="go('list')">Thoát</button></div>`;
+    m.onchange = onAnswer; applyAnswers();
   } else if (S.view === "review") {
     const { score, right } = grade(S.qs, S.A);
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="score">${score}/10</div>
@@ -616,6 +717,9 @@ function renderMain() {
       S.qs.map((q, i) => reviewQ(q, i)).join("");
   } else if (S.view === "live") {
     m.innerHTML = renderLive();
+  } else if (S.view === "stats") {
+    if (!S.admin) return go("home");
+    m.innerHTML = renderStats();
   } else if (S.view === "aiset") {
     if (!S.admin) return go("home");
     m.innerHTML = renderAiSet();
@@ -629,9 +733,10 @@ function renderMain() {
       <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–4 ảnh chụp trang đề; AI sẽ gõ lại câu hỏi và tự cắt hình minh họa.</span></p>
       <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
       <p id="ep" class="mu"></p>
+      <details id="epvd" ontoggle="prevQ()" class="card"><summary><b>Xem thử 3 câu đầu</b> (hiển thị công thức và ảnh)</summary><div id="epv"></div></details>
       <div id="eimgs"></div>
       <div class="row"><button onclick="saveQuiz()">Lưu bài</button><button class="g" onclick="go('list')">Hủy</button></div></div>
-      <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) kết thúc bằng “= Đ” hoặc “= S”. Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.</div></div>`;
+      <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) kết thúc bằng “= Đ” hoặc “= S”. Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.<br><br><b>Công thức:</b> viết trong dấu $...$ (kiểu LaTeX), ví dụ <code>$x^2 + 1$</code>, <code>$\\frac{a}{b}$</code>, <code>$\\sqrt{x}$</code>; dùng <code>$$...$$</code> để công thức nằm riêng một dòng.<br><br><b>Hóa học:</b> viết <code>$\\ce{2H2 + O2 -> 2H2O}$</code> hoặc <code>$\\ce{H2SO4}$</code> để hiện đúng chỉ số dưới và mũi tên. Gõ chữ thường thì <code>-&gt;</code> tự đổi thành →, <code>&lt;=&gt;</code> thành ⇌.</div></div>`;
     $("ef").onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $("ex").value = r.result; if (!$("et").value) $("et").value = f.name.replace(/\.txt$/i, ""); prevQ(); }; r.readAsText(f, "utf-8"); } };
     $("ei").onchange = async e => {
       for (const f of e.target.files) { const id = newImgId(); await addImg(id, f); insertAtCursor(`[ảnh:${id}]`); }
@@ -664,8 +769,8 @@ function reviewQ(q, i) {
 
 function renderBoard() {
   const rows = S.results.slice(0, 200);
-  $("board").innerHTML = `<h3>Bảng kết quả</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th></th>" : ""}</tr>` +
-    rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
+  $("board").innerHTML = `<h3>Bảng kết quả</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th>Rời tab</th><th></th>" : ""}</tr>` +
+    rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td>${r.sw ? `<span class="tag-no">${r.sw}</span>` : "0"}</td><td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
 }
 
 /* ===================== LÀM BÀI ===================== */
@@ -683,21 +788,22 @@ function shuffleQuiz(qs) {
 function take(id) {
   S.quiz = S.quizzes.find(q => q.id === id);
   if (!S.quiz) return go("list");
-  S.qs = shuffleQuiz(parse(S.quiz.text).qs); S.A = {}; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
+  const d = loadDraft();
+  if (d && confirm(`Bạn có bài đang làm dở (đã trả lời ${Object.keys(d.A).length} ý/câu). Bấm OK để làm tiếp, Hủy để làm bài mới.`)) { S.qs = d.qs; S.A = d.A; S.sw = d.sw || 0; }
+  else { clearDraft(); S.qs = shuffleQuiz(parse(S.quiz.text).qs.map((q, i) => ({ ...q, oi: i }))); S.A = {}; S.sw = 0; }
+  SW.away = false; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
   S.view = "take"; renderSide(); renderMain(); window.scrollTo(0, 0);
   const sb = S.subjects.find(x => x.id === S.quiz.subject);
-  liveSend({ state: "doing", quiz: S.quiz.title, subject: sb ? sb.name : null, since: Date.now() });
+  liveSend({ state: "doing", quiz: S.quiz.title, subject: sb ? sb.name : null, since: Date.now(), sw: S.sw || 0 });
 }
 function submitQuiz() {
-  const A = {}; let miss = 0;
-  S.qs.forEach((q, i) => {
-    if (q.sts.length) q.sts.forEach(s => { const r = document.querySelector(`input[name="q${i}${s.k}"]:checked`); if (r) A[i + s.k] = r.value === "1"; else miss++; });
-    else { const r = document.querySelector(`input[name="q${i}"]:checked`); if (r) A[i] = r.value; else miss++; }
-  });
+  const { A, miss } = readAnswers();
   if (miss && !confirm(`Còn ${miss} ý/câu chưa trả lời. Vẫn nộp bài?`)) return;
   S.A = A;
   const { score } = grade(S.qs, A);
-  if (!S.admin) store.put("results", { id: uid(), name: S.user, quiz: S.quiz.title, quizId: S.quiz.id, score, time: Date.now() });
+  const wr = S.qs.map((q, i) => qOk(q, i) ? null : q.oi).filter(x => x != null);
+  if (!S.admin) store.put("results", { id: uid(), name: S.user, quiz: S.quiz.title, quizId: S.quiz.id, score, time: Date.now(), sw: S.sw || 0, n: S.qs.length, wr });
+  clearDraft();
   liveSend(LIVE_IDLE);
   S.view = "review"; renderMain(); window.scrollTo(0, 0);
 }
@@ -723,6 +829,12 @@ function prevQ() {
     return `<div class="thumb">${src ? `<img src="${src}" alt="">` : ""}<div style="flex:1"><code>[ảnh:${esc(id)}]</code><div class="${src ? "mu" : "tag-no"}">${src ? Math.round(src.length / 1024) + " KB" : "Chưa có ảnh"}</div></div><button class="g" data-k="${esc(id)}" onclick="pickImg(this.dataset.k)">${src ? "Đổi ảnh" : "Chọn ảnh"}</button></div>`;
   }).join("") + `<div class="mu">Tổng dung lượng ảnh: ${Math.round(imgBytes($("ex").value) / 1024)} KB / ${Math.round(IMG_LIMIT / 1024)} KB</div></div>` : "";
   $("ep").innerHTML = `Đọc được <b>${r.qs.length}</b> câu hợp lệ.` + (r.errors.length ? ` <span class="tag-no">${esc(r.errors.join("; "))}</span>` : "");
+  prevPreview(r.qs);
+}
+function prevPreview(qs) {
+  const d = $("epvd"); if (!d || !d.open) return;
+  $("epv").innerHTML = qs.slice(0, 3).map((q, i) => `<div style="margin:8px 0"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
+    (q.sts.length ? q.sts.map(x => `<div>${x.k}) ${R(x.t)} <small class="mu">= ${x.v ? "Đ" : "S"}</small></div>`).join("") : q.opts.map(o => `<div>${o.k}. ${R(o.t)}${o.k === q.ans ? ` <span class="tag-ok">✓</span>` : ""}</div>`).join("")) + `</div>`).join("") || `<span class="mu">Chưa có câu nào.</span>`;
 }
 function saveQuiz() {
   const title = $("et").value.trim(), text = $("ex").value, r = parse(text);
