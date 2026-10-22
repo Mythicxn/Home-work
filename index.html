@@ -8,10 +8,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&family=Lexend:wght@500;700;800&display=swap" rel="stylesheet">
+<script>try{var _t=localStorage.getItem("lh_theme");if(_t==="light"||_t==="dark")document.documentElement.setAttribute("data-theme",_t)}catch(e){}</script>
 <style>
 :root{--bg:#e8ecf6;--card:#fff;--tx:#141941;--mu:#626892;--pr:#3d42c9;--prt:#3d42c9;--moon:#f4bf4f;--ok:#12805c;--okb:#dcf5ea;--no:#d23a45;--nob:#fde8ea;--bd:#d6dbec;--night:#10133a;--hf:"Lexend","Be Vietnam Pro",system-ui,sans-serif;
 --stars:radial-gradient(1.5px 1.5px at 8% 18%,#fff 60%,transparent 62%),radial-gradient(1px 1px at 22% 62%,#fffc 60%,transparent 62%),radial-gradient(1.5px 1.5px at 41% 28%,#fff 60%,transparent 62%),radial-gradient(1px 1px at 63% 14%,#fffc 60%,transparent 62%),radial-gradient(2px 2px at 78% 42%,#fff 60%,transparent 62%),radial-gradient(1px 1px at 91% 76%,#fffc 60%,transparent 62%),radial-gradient(1px 1px at 55% 82%,#fff9 60%,transparent 62%),radial-gradient(1px 1px at 30% 90%,#fff9 60%,transparent 62%)}
-@media(prefers-color-scheme:dark){:root{--bg:#0c0f2e;--card:#171b45;--tx:#e9ebff;--mu:#9aa0d0;--pr:#6b70f2;--prt:#aeb1ff;--ok:#4cd9a0;--okb:#123a30;--no:#ff8088;--nob:#47202c;--bd:#2c3169;--night:#070920}}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0c0f2e;--card:#171b45;--tx:#e9ebff;--mu:#9aa0d0;--pr:#6b70f2;--prt:#aeb1ff;--ok:#4cd9a0;--okb:#123a30;--no:#ff8088;--nob:#47202c;--bd:#2c3169;--night:#070920}}
+:root[data-theme="dark"]{--bg:#0c0f2e;--card:#171b45;--tx:#e9ebff;--mu:#9aa0d0;--pr:#6b70f2;--prt:#aeb1ff;--ok:#4cd9a0;--okb:#123a30;--no:#ff8088;--nob:#47202c;--bd:#2c3169;--night:#070920;color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;font:16px/1.6 "Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--tx)}
@@ -39,8 +42,8 @@ button.g{background:transparent;color:var(--prt);border:1.5px solid color-mix(in
 button.d{background:#c9323d;color:#fff}
 header button{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.35);color:#fff}
 .ai-btn{display:inline-flex;align-items:center;gap:8px}
-input[type=text],select,textarea{width:100%;padding:10px 14px;border:1.5px solid var(--bd);border-radius:12px;background:var(--card);transition:border-color .15s}
-input[type=text]:focus,select:focus,textarea:focus{border-color:var(--moon)}
+input[type=text],input[type=password],select,textarea{width:100%;padding:10px 14px;border:1.5px solid var(--bd);border-radius:12px;background:var(--card);transition:border-color .15s}
+input[type=text]:focus,input[type=password]:focus,select:focus,textarea:focus{border-color:var(--moon)}
 textarea{min-height:300px;font-family:ui-monospace,Consolas,monospace;font-size:.9rem}
 details.card summary{cursor:pointer}
 
@@ -85,6 +88,9 @@ div.op{cursor:default}
 /* câu đúng/sai: hai nút cố định */
 .st{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;align-items:center;padding:8px 0;border-top:1px dashed var(--bd)}
 .st>span:first-child{min-width:0;overflow-wrap:anywhere}
+#ntov{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,7,40,.62)}
+#ntov .card{max-width:480px;width:100%;margin:0;box-shadow:0 24px 60px rgba(5,7,40,.5)}
+#ntov .nt-body{white-space:pre-wrap;max-height:50vh;overflow:auto;overflow-wrap:anywhere}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 14px}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border:1.5px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);font-weight:600;font-size:.88rem}
 .chip small{opacity:.65;font-weight:500}
@@ -106,6 +112,8 @@ div.op{cursor:default}
 .score{font:800 3.2rem/1 var(--hf);color:var(--prt);margin:.1em 0 .2em}
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:.93rem}
+#board .tw{max-height:min(420px,60vh);overflow:auto;border:1px solid var(--bd);border-radius:12px;scrollbar-width:thin;overscroll-behavior:contain}
+#board th{position:sticky;top:0;z-index:1;background:var(--card);box-shadow:0 1px 0 var(--bd)}
 th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--bd);white-space:nowrap}
 th{font:600 .82rem var(--hf);color:var(--mu);background:color-mix(in srgb,var(--bd) 35%,transparent)}
 tr:hover td{background:color-mix(in srgb,var(--pr) 5%,transparent)}
@@ -155,7 +163,6 @@ pre{background:var(--bg);padding:12px;border-radius:12px;overflow-x:auto;font-si
     <p class="mu">Nhập đúng họ tên của bạn.</p>
     <input type="text" id="nm" placeholder="Nhập họ tên của bạn" autocomplete="off">
     <input type="password" id="pw" placeholder="Mật khẩu quản trị" autocomplete="current-password" hidden style="width:100%;padding:9px 11px;margin-top:8px;border:1px solid var(--bd);border-radius:8px;background:var(--card)">
-    <p class="mu"><small>Lưu ý: người quản trị có thể biết bạn đang làm bài nào.</small></p>
     <p id="err" role="alert"></p>
     <button onclick="login()">Vào làm bài</button>
   </div>
@@ -377,6 +384,17 @@ function imgBytes(text) { return tokensOf(text).reduce((n, id) => n + ((S.quiz.i
 /* ===================== TRẠNG THÁI ===================== */
 const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", ai: null, aiCache: {}, aiBusy: {} };
 
+const pkey = n => norm(n).replace(/\s+/g, "_");
+async function pwHash(name, pw) {
+  const d = new TextEncoder().encode(pkey(name) + ":" + pw + ":lunar-homework");
+  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", d))].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+const getTheme = () => { try { return localStorage.getItem("lh_theme") || "auto"; } catch (e) { return "auto"; } };
+function setTheme(v) {
+  try { localStorage.setItem("lh_theme", v); } catch (e) {}
+  if (v === "light" || v === "dark") document.documentElement.setAttribute("data-theme", v); else document.documentElement.removeAttribute("data-theme");
+  if (S.view === "settings") renderMain();
+}
 const isAdminName = v => norm(v) === norm(CONFIG.ADMIN);
 async function login() {
   const v = $("nm").value.trim();
@@ -393,6 +411,13 @@ async function login() {
   } else {
     const st = findStudent(v);
     if (!st) { $("err").textContent = "Tên này không có trong danh sách lớp 11B02. Hãy nhập lại họ tên."; return; }
+    let pr = null; try { pr = await store.get("profiles", pkey(st)); } catch (e) { pr = null; } // lỗi đọc → không khóa học sinh
+    if (pr && pr.hash) {
+      const pw = $("pw").value;
+      if (!pw) { $("pw").hidden = false; $("pw").placeholder = "Mật khẩu của bạn"; $("err").textContent = "Tài khoản này có mật khẩu. Nhập mật khẩu rồi bấm Vào làm bài."; $("pw").focus(); return; }
+      let h = ""; try { h = await pwHash(st, pw); } catch (e) { $("err").textContent = "Trình duyệt không hỗ trợ kiểm tra mật khẩu."; return; }
+      if (h !== pr.hash) { $("err").textContent = "Sai mật khẩu."; return; }
+    }
     S.user = st; S.admin = false;
   }
   $("login").hidden = true; $("app").hidden = false;
@@ -403,7 +428,7 @@ async function login() {
 function logout() { (cloud ? firebase.auth().signOut() : Promise.resolve()).catch(() => {}).finally(() => location.reload()); }
 $("lg2").src = $("lg").src;
 $("nm").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
-$("nm").addEventListener("input", () => { $("pw").hidden = !(cloud && isAdminName($("nm").value)); });
+$("nm").addEventListener("input", () => { const adm = cloud && isAdminName($("nm").value); if (!adm) { $("pw").hidden = true; $("pw").value = ""; } else $("pw").hidden = false; $("pw").placeholder = "Mật khẩu quản trị"; });
 $("pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 
 function start() {
@@ -418,6 +443,7 @@ function start() {
     store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); if (S.view === "stats") renderMain(); });
     store.sub("settings", a => {
       S.ai = a.find(x => x.id === "ai") || null;
+      S.notice = a.find(x => x.id === "notice") || null; maybeNotice();
       if (S.view === "aiset" && $("ast")) $("ast").innerHTML = aiStatus(); else if (S.view === "review") renderMain();
     }, e => console.warn("settings", e));
     if (S.admin) {
@@ -1003,7 +1029,103 @@ function renderStats() {
 
 /* ===================== GIAO DIỆN ===================== */
 function go(v) {
-  S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0);
+  S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0); maybeNotice();
+}
+/* ===================== THÔNG BÁO KHI HỌC SINH VÀO ===================== */
+const noticeDue = n => !!(n && n.active && String(n.text || "").trim() && (!n.until || Date.now() <= n.until));
+function maybeNotice() {
+  const n = S.notice;
+  if (S.admin || !S.user || !noticeDue(n) || S.noticeShownT === n.t || S.view === "take") return;
+  const k = "lh_notice_seen_" + pkey(S.user); let seen = null;
+  try { seen = localStorage.getItem(k); } catch (e) {}
+  S.noticeShownT = n.t;
+  if (!n.every && seen === String(n.t)) return;
+  showNotice(n.text);
+  try { localStorage.setItem(k, String(n.t)); } catch (e) {}
+}
+function closeNotice() { const d = $("ntov"); if (d) d.remove(); }
+function showNotice(text) {
+  closeNotice();
+  const d = document.createElement("div"); d.id = "ntov"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+  d.innerHTML = `<div class="card"><h3>📢 Thông báo</h3><div class="nt-body">${esc(text)}</div><div class="row" style="margin-top:14px"><button id="ntok">Đã hiểu</button></div></div>`;
+  d.addEventListener("keydown", e => { if (e.key === "Escape") closeNotice(); });
+  document.body.appendChild(d); $("ntok").onclick = closeNotice; $("ntok").focus();
+}
+function noticeCard() {
+  const n = S.notice || {}, d = n.until ? new Date(n.until) : null;
+  const ds = d ? d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") : "";
+  return `<div class="card"><h3>📢 Thông báo khi học sinh vào web</h3>
+    <p class="mu">Khi thông báo đang bật, học sinh thấy một hộp thoại ngay sau khi đăng nhập. Tắt hoặc để trống thì không hiện gì. Mỗi lần bạn bấm Lưu được tính là một thông báo mới.</p>
+    <p><label>Nội dung<textarea id="nt_text" style="min-height:120px;font-family:inherit" placeholder="VD: Mai kiểm tra 15 phút môn Sinh, các em ôn bài 1–3.">${esc(n.text || "")}</textarea></label></p>
+    <p><label><input type="checkbox" id="nt_on" ${n.active ? "checked" : ""}> Bật thông báo</label></p>
+    <p><label><input type="checkbox" id="nt_ev" ${n.every ? "checked" : ""}> Hiện lại mỗi lần đăng nhập (bỏ chọn: mỗi em chỉ thấy 1 lần trên mỗi máy)</label></p>
+    <p><label>Tự tắt sau ngày (không bắt buộc)<input type="date" id="nt_until" value="${ds}" style="max-width:220px"></label></p>
+    <p id="nt_msg" role="alert"></p>
+    <div class="row"><button onclick="saveNotice()">Lưu thông báo</button><button class="g" onclick="showNotice($('nt_text').value.trim() || '(chưa có nội dung)')">Xem thử</button><button class="d" onclick="stopNotice()">Tắt thông báo</button></div></div>`;
+}
+function ntMsg(t, ok) { const e = $("nt_msg"); if (e) { e.className = ok ? "tag-ok" : "tag-no"; e.textContent = t; } }
+async function saveNotice() {
+  const text = $("nt_text").value.trim(), act = $("nt_on").checked, ev = $("nt_ev").checked, u = $("nt_until").value;
+  if (act && !text) return ntMsg("Hãy nhập nội dung trước khi bật.");
+  try { await store.put("settings", { id: "notice", text, active: act, every: ev, until: u ? new Date(u + "T23:59:59").getTime() : null, t: Date.now() }); }
+  catch (e) { return ntMsg("Không lưu được: " + (e.message || e)); }
+  ntMsg(act ? "Đã lưu. Học sinh sẽ thấy khi đăng nhập." : "Đã lưu (đang tắt).", true);
+}
+async function stopNotice() {
+  if (!S.notice) return ntMsg("Chưa có thông báo nào.");
+  try { await store.put("settings", { ...S.notice, active: false, t: Date.now() }); }
+  catch (e) { return ntMsg("Không tắt được: " + (e.message || e)); }
+  const c = $("nt_on"); if (c) c.checked = false; ntMsg("Đã tắt thông báo.", true);
+}
+function renderSettings() {
+  const th = getTheme(), chip = (v, lab) => `<button class="chip ${th === v ? "on" : ""}" onclick="setTheme('${v}')">${lab}</button>`;
+  let h = `<div class="card"><h2>Cài đặt</h2><h3>Giao diện</h3><div class="chips">${chip("auto", "🖥 Theo thiết bị")}${chip("light", "☀ Sáng")}${chip("dark", "🌙 Tối")}</div><div class="mu">Lựa chọn được nhớ trên trình duyệt này.</div></div>`;
+  if (!S.admin) h += `<div class="card"><h3>Mật khẩu của bạn</h3><div id="pwbox" class="mu">Đang tải…</div></div>`;
+  else h += `<div class="card"><h3>Mật khẩu học sinh</h3><p class="mu">Học sinh quên mật khẩu: chọn tên rồi xóa mật khẩu để em ấy đặt lại.</p><div class="row"><select id="rsel" style="max-width:320px">${STUDENTS.map(n => `<option>${esc(n)}</option>`).join("")}</select><button class="d" onclick="resetPw()">Xóa mật khẩu</button></div><p id="rmsg" role="alert"></p></div>` + noticeCard();
+  return h;
+}
+async function loadPwBox() {
+  const box = $("pwbox"); if (!box) return;
+  let pr = null, err = "";
+  try { pr = await store.get("profiles", pkey(S.user)); } catch (e) { err = e.message || String(e); }
+  if (!$("pwbox")) return;
+  if (err) { box.innerHTML = `<span class="tag-no">Chưa dùng được mật khẩu: ${esc(err)}</span><div class="mu">Nhờ quản trị viên thêm quy tắc Firebase cho bộ sưu tập “profiles”.</div>`; return; }
+  const has = !!(pr && pr.hash);
+  box.className = "";
+  box.innerHTML = `<p class="mu">${has ? "Tài khoản của bạn <b>đang có mật khẩu</b>. Mỗi lần vào web sẽ phải nhập mật khẩu." : "Chưa đặt mật khẩu. Đặt mật khẩu để người khác không vào bằng tên của bạn được."}</p>
+    ${has ? `<p><label>Mật khẩu hiện tại<input type="password" id="pw0" autocomplete="current-password"></label></p>` : ""}
+    <p><label>${has ? "Mật khẩu mới" : "Mật khẩu"} (ít nhất 4 ký tự)<input type="password" id="pw1" autocomplete="new-password"></label></p>
+    <p><label>Nhập lại mật khẩu<input type="password" id="pw2" autocomplete="new-password"></label></p>
+    <p id="pwmsg" role="alert"></p>
+    <div class="row"><button onclick="savePw()">${has ? "Đổi mật khẩu" : "Đặt mật khẩu"}</button>${has ? `<button class="d" onclick="removePw()">Xóa mật khẩu</button>` : ""}</div>
+    <p class="mu"><small>Quên mật khẩu? Nhờ quản trị viên xóa mật khẩu cho bạn.</small></p>`;
+}
+function pwMsg(t, ok) { const e = $("pwmsg"); if (e) { e.className = ok ? "tag-ok" : "tag-no"; e.textContent = t; } }
+async function savePw() {
+  const p1 = $("pw1").value, p2 = $("pw2").value;
+  if (p1.length < 4) return pwMsg("Mật khẩu cần ít nhất 4 ký tự.");
+  if (p1 !== p2) return pwMsg("Hai lần nhập chưa giống nhau.");
+  try {
+    const pr = await store.get("profiles", pkey(S.user));
+    if (pr && pr.hash && await pwHash(S.user, $("pw0") ? $("pw0").value : "") !== pr.hash) return pwMsg("Mật khẩu hiện tại chưa đúng.");
+    await store.put("profiles", { id: pkey(S.user), name: S.user, hash: await pwHash(S.user, p1), t: Date.now() });
+  } catch (e) { return pwMsg("Không lưu được: " + (e.message || e)); }
+  await loadPwBox(); pwMsg("Đã lưu mật khẩu.", true);
+}
+async function removePw() {
+  try {
+    const pr = await store.get("profiles", pkey(S.user));
+    if (pr && pr.hash && await pwHash(S.user, $("pw0") ? $("pw0").value : "") !== pr.hash) return pwMsg("Nhập đúng mật khẩu hiện tại để xóa.");
+    if (!confirm("Xóa mật khẩu? Ai cũng có thể vào bằng tên của bạn.")) return;
+    await store.del("profiles", pkey(S.user));
+  } catch (e) { return pwMsg("Không xóa được: " + (e.message || e)); }
+  await loadPwBox(); pwMsg("Đã xóa mật khẩu.", true);
+}
+async function resetPw() {
+  const n = $("rsel").value, m = $("rmsg");
+  if (!confirm("Xóa mật khẩu của " + n + "?")) return;
+  try { await store.del("profiles", pkey(n)); m.className = "tag-ok"; m.textContent = "Đã xóa mật khẩu của " + n + "."; }
+  catch (e) { m.className = "tag-no"; m.textContent = "Không xóa được: " + (e.message || e); }
 }
 function openSub(id) { S.sub = id; S.tag = ""; S.q = ""; go("list"); }
 
@@ -1011,7 +1133,8 @@ function renderSide() {
   $("side").innerHTML = `<div class="card">
     <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
     (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${S.quizzes.filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
-    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+    (S.admin ? "" : `<hr><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>⚙ Cài đặt</span></button>`) +
+    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>🎨 Giao diện &amp; mật khẩu HS</span></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
 }
 
 function renderMain() {
@@ -1028,7 +1151,7 @@ function renderMain() {
     const all = S.quizzes.filter(q => q.subject === sub.id), tags = allTags(sub.id);
     if (S.tag && !tags.some(x => tagKey(x.t) === tagKey(S.tag))) S.tag = "";
     const bar = tags.length ? `<div class="chips"><button class="chip ${S.tag ? "" : "on"}" onclick="setTag('')">Tất cả <small>${all.length}</small></button>` + tags.map(x => `<button class="chip ${S.tag && tagKey(S.tag) === tagKey(x.t) ? "on" : ""}" data-t="${esc(x.t)}" onclick="setTag(this.dataset.t)">${esc(x.t)} <small>${x.n}</small></button>`).join("") + `</div>` : "";
-    const search = all.length >= 4 ? `<input type="text" id="qs" placeholder="🔍 Tìm bài theo tên hoặc thẻ…" value="${esc(S.q || "")}" oninput="S.q=this.value;$('qlist').innerHTML=qListHtml()" autocomplete="off" style="margin-bottom:12px">` : "";
+    const search = all.length >= 3 ? `<input type="text" id="qs" placeholder="🔍 Tìm bài theo tên hoặc thẻ…" value="${esc(S.q || "")}" oninput="S.q=this.value;$('qlist').innerHTML=qListHtml()" autocomplete="off" style="margin-bottom:12px">` : "";
     m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">+ Thêm bài</button><button class="g" onclick="renameSub()">Đổi tên môn</button><button class="d" onclick="delSub()">Xóa môn</button></div>` : ""}</div>` + search + bar + `<div id="qlist">${qListHtml()}</div>`;
   } else if (S.view === "take") {
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.</div></div>` +
@@ -1054,6 +1177,8 @@ function renderMain() {
   } else if (S.view === "aiset") {
     if (!S.admin) return go("home");
     m.innerHTML = renderAiSet();
+  } else if (S.view === "settings") {
+    m.innerHTML = renderSettings(); loadPwBox();
   } else if (S.view === "edit") {
     const q = S.quiz;
     m.innerHTML = `<div class="card"><h2>${q.id ? "Sửa bài" : "Thêm bài mới"}</h2>
@@ -1105,8 +1230,8 @@ function reviewQ(q, i) {
 }
 
 function renderBoard() {
-  const rows = S.results.slice(0, 200);
-  $("board").innerHTML = `<h3>Bảng kết quả</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th>Rời tab</th><th></th>" : ""}</tr>` +
+  const rows = S.results.slice(0, 300);
+  $("board").innerHTML = `<h3>Bảng kết quả${S.results.length ? ` <small class="mu">(${S.results.length} lượt · cuộn để xem thêm)</small>` : ""}</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th>Rời tab</th><th></th>" : ""}</tr>` +
     rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td>${r.sw ? `<span class="tag-no">${r.sw}</span>` : "0"}</td><td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
 }
 
