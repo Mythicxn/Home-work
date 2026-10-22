@@ -612,6 +612,79 @@ function cropData(src, b) {
     im.onerror = () => rej(new Error("img")); im.src = src;
   });
 }
+/* ===== AI chỉ tìm & cắt hình cho đề ĐÃ nhập (không thêm/sửa câu hỏi) ===== */
+const FIG_SYS = "Bạn xem ảnh chụp trang đề trắc nghiệm và tìm các hình vẽ, sơ đồ, đồ thị, hình thí nghiệm mà người làm cần nhìn mới trả lời được. Chỉ trả đúng định dạng yêu cầu, không giải thích thêm.";
+const FIG_USER = (n, text) => `Có ${n} ảnh chụp trang đề (đánh số 1..${n} theo thứ tự gửi). Dưới đây là phần chữ của đề ĐÃ được nhập sẵn. KHÔNG viết lại, KHÔNG thêm câu hỏi mới, KHÔNG sửa nội dung:
+
+<<<DE
+${text}
+DE>>>
+
+Nhiệm vụ: tìm mọi hình trong ảnh mà người làm cần nhìn (hình vẽ, sơ đồ, đồ thị, hình thí nghiệm, hình nằm trong đáp án) và cho biết hình đó thuộc câu nào trong đề trên. Trả về đúng định dạng, mỗi hình một dòng:
+
+===ANH===
+h1 | số thứ tự ảnh | ymin,xmin,ymax,xmax | số câu | vị trí
+h2 | ...
+===GHICHU===
+...
+
+Quy tắc:
+- "số câu" là số N của "Câu N" trong đề đã nhập (chỉ ghi số, ví dụ 7).
+- "vị trí": ghi chữ "de" nếu hình thuộc phần đề dẫn của câu; nếu hình nằm trong một đáp án/ý thì ghi đúng ký hiệu của đáp án/ý đó như trong đề (A, B, C, D, a, b, c, d, I, II, III, IV).
+- Tọa độ chuẩn hóa 0–1000 so với ảnh, khung ôm sát hình, KHÔNG lấy chữ của đề, không lấy phần khoanh/tô của học sinh nếu tách được.
+- Bỏ qua câu không có hình. Bỏ qua câu đã có [ảnh:...] trong đề. Mỗi hình chỉ ghi một lần.
+- Chỉ ghi hình thuộc các câu có trong đề đã nhập. Phần ===GHICHU===: ghi ngắn gọn các hình không chắc chắn hoặc không khớp câu nào.`;
+const OPT_PRE = /^\s*([A-Da-d]|IV|III|II|I)[.)]\s*/;
+const HEAD_RE = /^\s*C[âa]u\s*(\d+)\s*[:.)]/i;
+async function aiFigures(files) {
+  const total = files.length; files = [...files].slice(0, AI_SCAN_MAX); if (!files.length) return;
+  const st = $("efs"), quiz = S.quiz, text0 = $("ex").value;
+  if (!text0.trim()) { st.innerHTML = `<span class="tag-no">Hãy nhập nội dung đề trước rồi mới chọn ảnh.</span>`; return; }
+  if (!aiReady()) { st.innerHTML = `<span class="tag-no">AI chưa bật. Vào “⚙ Cài đặt AI” nhập key trước.</span>`; return; }
+  try {
+    st.textContent = "Đang đọc ảnh…";
+    const imgs = []; for (const f of files) imgs.push(await compress(f, files.length > 4 ? 1400 : 1600, 0.85));
+    st.textContent = "AI đang tìm hình trong " + files.length + " ảnh (có thể mất 20–90 giây, đừng đóng trang)…";
+    const raw = await aiCall(FIG_SYS, FIG_USER(imgs.length, text0), null, imgs.map(x => x.split(",")[1]));
+    if (S.view !== "edit" || S.quiz !== quiz || !$("ex")) return;
+    const mAnh = raw.match(/===ANH===([\s\S]*?)(?:===GHICHU===|$)/), mNote = raw.match(/===GHICHU===([\s\S]*)$/);
+    const figs = [];
+    ((mAnh && mAnh[1]) || "").split("\n").forEach(l => {
+      const m = l.match(/^\s*(\S+)\s*\|\s*(\d+)\s*\|\s*([\d.\s,]+?)\s*\|\s*(?:C[âa]u\s*)?(\d+)\s*\|\s*([A-Za-z]+)/i);
+      if (!m) return;
+      const b = m[3].split(",").map(Number);
+      if (b.length === 4 && b.every(isFinite) && b[2] > b[0] && b[3] > b[1]) figs.push({ n: +m[2], b, q: +m[4], pos: m[5] });
+    });
+    if (!figs.length) throw new Error("AI không tìm thấy hình nào khớp với đề. Hãy thử chụp rõ hơn hoặc chèn ảnh bằng tay.");
+    const lines = $("ex").value.split("\n"), skipped = []; let okc = 0;
+    for (const f of figs) {
+      const hi = lines.findIndex(l => { const m = l.match(HEAD_RE); return m && +m[1] === f.q; });
+      if (hi < 0) { skipped.push(`Câu ${f.q}: không thấy trong đề`); continue; }
+      let end = lines.length; for (let j = hi + 1; j < lines.length; j++) if (HEAD_RE.test(lines[j])) { end = j; break; }
+      if (!imgs[f.n - 1]) { skipped.push(`Câu ${f.q}: ảnh số ${f.n} không tồn tại`); continue; }
+      let data; try { data = await cropData(imgs[f.n - 1], f.b); } catch (e) { skipped.push(`Câu ${f.q}: không cắt được hình`); continue; }
+      const id = newImgId(), tok = `[ảnh:${id}]`; S.quiz.imgs[ikey(id)] = data;
+      let placed = false;
+      if (f.pos.toLowerCase() !== "de") {
+        for (let j = hi + 1; j < end; j++) {
+          const m = lines[j].match(OPT_PRE);
+          if (m && m[1].toLowerCase() === f.pos.toLowerCase()) { lines[j] = lines[j].replace(OPT_PRE, p => p + tok + " "); placed = true; break; }
+        }
+      }
+      if (!placed) { // đặt ở phần đề dẫn: ngay trước dòng đáp án/ý đầu tiên
+        let j = hi + 1; while (j < end && !OPT_PRE.test(lines[j])) j++;
+        lines.splice(j, 0, tok);
+        if (f.pos.toLowerCase() !== "de") skipped.push(`Câu ${f.q}: không thấy đáp án “${f.pos}”, hình được đặt ở phần đề`);
+      }
+      okc++;
+    }
+    $("ex").value = lines.join("\n"); prevQ();
+    const note = mNote && mNote[1].trim();
+    st.innerHTML = `<span class="tag-ok">Đã chèn ${okc}/${figs.length} hình vào đề.</span> Chữ của đề không bị thay đổi, hãy xem lại mục “Ảnh trong đề” và bấm “Đổi ảnh” nếu cắt lệch.` +
+      (skipped.length ? `<br><span class="tag-no">Bỏ qua: ${esc(skipped.join("; "))}</span>` : "") +
+      (total > AI_SCAN_MAX ? ` Chỉ xử lý ${AI_SCAN_MAX} ảnh đầu, hãy chạy lại cho các ảnh còn lại.` : "") + (note ? `<br>Ghi chú của AI: ${esc(note)}` : "");
+  } catch (e) { st.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
+}
 const AI_SCAN_MAX = 10;
 async function aiScan(files) {
   const total = files.length; files = [...files].slice(0, AI_SCAN_MAX); if (!files.length) return;
@@ -799,6 +872,7 @@ function renderMain() {
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
       <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh tại vị trí con trỏ</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh (trong câu hỏi hoặc đáp án) rồi bấm nút.</span></p>
       <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI sẽ gõ lại câu hỏi và tự cắt hình minh họa.</span></p>
+      <p class="row"><button type="button" class="g ai-btn" onclick="$('efi').click()">${AI_ICON}<span>Chỉ cắt hình cho đề đã nhập</span></button><input type="file" id="efi" accept="image/*" multiple hidden><span id="efs" class="mu">Nhập chữ đề trước, rồi chọn ảnh chụp: AI chỉ tìm hình và chèn vào đúng câu, không thêm hay sửa câu hỏi.</span></p>
       <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
       <p id="ep" class="mu"></p>
       <details id="epvd" ontoggle="prevQ()" class="card"><summary><b>Xem thử 3 câu đầu</b> (hiển thị công thức và ảnh)</summary><div id="epv"></div></details>
@@ -811,6 +885,7 @@ function renderMain() {
       e.target.value = ""; prevQ();
     };
     $("eai").onchange = e => { const f = [...e.target.files]; e.target.value = ""; aiScan(f); };
+    $("efi").onchange = e => { const f = [...e.target.files]; e.target.value = ""; aiFigures(f); };
     prevQ();
   }
 }
