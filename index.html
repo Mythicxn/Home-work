@@ -388,7 +388,7 @@ const IMG_LIMIT = 900000;
 function imgBytes(text) { return tokensOf(text).reduce((n, id) => n + ((S.quiz.imgs[ikey(id)] || "").length), 0); }
 
 /* ===================== TRẠNG THÁI ===================== */
-const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", pwlog: [], pwlogErr: "", pwlogReady: false, ai: null, aiCache: {}, aiBusy: {} };
+const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", pwlog: [], pwlogErr: "", pwlogReady: false, profiles: [], profilesReady: false, profilesErr: "", pwFilter: "has", ai: null, aiCache: {}, aiBusy: {} };
 
 const pkey = n => norm(n).replace(/\s+/g, "_");
 async function pwHash(name, pw) {
@@ -455,6 +455,8 @@ function start() {
     if (S.admin) {
       store.sub("live", a => { S.live = a; S.liveErr = ""; renderSide(); if (S.view === "live") renderMain(); }, e => { S.liveErr = e.message || String(e); if (S.view === "live") renderMain(); });
       setInterval(() => { renderSide(); if (S.view === "live") renderMain(); }, 30000);
+      store.sub("profiles", a => { S.profiles = a.map(x => ({ id: x.id, name: x.name, t: x.t || 0 })); S.profilesReady = true; S.profilesErr = ""; if (S.view === "pwlog") renderMain(); },
+        e => { S.profilesErr = e.message || String(e); if (S.view === "pwlog") renderMain(); });
       store.sub("pwlog", a => {
         S.pwlog = a.sort((x, y) => y.t - x.t); S.pwlogErr = ""; S.pwlogReady = true;
         if (S.view === "pwlog") { pwSeen(); renderMain(); } else pwAlert();
@@ -1229,6 +1231,23 @@ async function checkWarn() { // học sinh đăng nhập → xem có cảnh cáo
     } catch (e) {}
   }
 }
+function pwAccounts() { // mỗi học sinh trong lớp: có mật khẩu chưa (đọc từ "profiles"), đặt lúc nào, IP/thiết bị lần đặt gần nhất
+  const pm = new Map(S.profiles.map(p => [p.id, p])), last = new Map();
+  pwActive().forEach(x => { if (!last.has(x.key)) last.set(x.key, x); }); // pwlog đã sắp mới → cũ
+  return STUDENTS.map(n => { const k = pkey(n), p = pm.get(k); return { n, k, has: !!p, t: p ? p.t : 0, lg: last.get(k) }; });
+}
+function setPwF(v) { S.pwFilter = v; renderMain(); }
+function pwAccountsCard() {
+  if (S.profilesErr) return `<div class="card"><h3>Tài khoản đã đặt mật khẩu</h3><p class="tag-no">Không đọc được: ${esc(S.profilesErr)}</p></div>`;
+  if (!S.profilesReady) return `<div class="card"><h3>Tài khoản đã đặt mật khẩu</h3><p class="mu">Đang tải…</p></div>`;
+  const acc = pwAccounts(), nHas = acc.filter(a => a.has).length, f = S.pwFilter || "has";
+  const list = acc.filter(a => f === "all" || (f === "has" ? a.has : !a.has)).sort((a, b) => (b.has - a.has) || (b.t - a.t) || a.n.localeCompare(b.n, "vi"));
+  const chip = (v, lab) => `<button class="chip ${f === v ? "on" : ""}" onclick="setPwF('${v}')">${lab}</button>`;
+  const rows = list.map(a => `<tr><td><b>${esc(a.n)}</b></td><td>${a.has ? `<span class="tag-ok">Có mật khẩu</span>` : `<span class="mu">Chưa đặt</span>`}</td><td>${a.has && a.t ? fmtT(a.t) : "–"}</td><td><small>${a.has && a.lg ? esc(a.lg.ip || "–") + "<br>" + esc(a.lg.ua || "") + ` · <code>${esc((a.lg.dev || "").slice(-6))}</code>` : a.has ? `<span class="mu">không có log (đặt trước khi có nhật ký)</span>` : ""}</small></td><td>${a.has ? `<button class="d" onclick="resetRow('${esc(a.k)}','${esc(a.n).replace(/'/g, "\\'")}')">Xóa mật khẩu</button>` : ""}</td></tr>`).join("");
+  return `<div class="card"><h3>Tài khoản đã đặt mật khẩu: ${nHas}/${STUDENTS.length}</h3>
+    <div class="chips">${chip("has", "Có mật khẩu (" + nHas + ")")}${chip("no", "Chưa đặt (" + (STUDENTS.length - nHas) + ")")}${chip("all", "Tất cả")}</div>
+    <div class="tw"><table><tr><th>Họ tên</th><th>Trạng thái</th><th>Đặt lúc</th><th>IP / thiết bị lần đặt</th><th></th></tr>${rows || `<tr><td colspan="5" class="mu">Không có tài khoản nào.</td></tr>`}</table></div></div>`;
+}
 function renderPwLog() {
   const fl = pwFlagged(), ipg = pwGroups("ip", 2).filter(g => !fl.some(f => f.accs.length && g.accs.every(a => f.accs.some(b => b.key === a.key))));
   const gp = fl.map(g => `<div class="gp"><b class="tag-no">⚠ Một thiết bị đặt mật khẩu cho ${g.accs.length} tài khoản</b>
@@ -1240,9 +1259,10 @@ function renderPwLog() {
     const act = x.action === "remove" ? "xóa" : x.action === "change" ? "đổi" : "đặt", c = !x.reset && x.action !== "remove" ? devCount(x) : 1;
     return `<tr class="${c > 1 ? "flag" : ""}"><td>${fmtT(x.t)}</td><td><b>${esc(x.name)}</b></td><td>${act}</td><td>${esc(x.ip || "–")}</td><td><small>${esc(x.ua || "")}<br><code>${esc((x.dev || "").slice(-6))}</code></small></td><td>${x.reset ? `<span class="mu">đã reset</span>` : x.action === "remove" ? "" : `<button class="d" onclick="resetRow('${esc(x.key)}','${esc(x.name).replace(/'/g, "\\'")}')">Xóa mật khẩu</button>`}</td></tr>`;
   }).join("");
-  return `<div class="pl"><div class="row sp"><h2>🔐 Nhật ký mật khẩu</h2><div class="mu">Đang có mật khẩu: <b>${new Set(pwActive().map(x => x.key)).size}</b></div></div>
+  return `<div class="pl"><div class="row sp"><h2>🔐 Nhật ký mật khẩu</h2><div class="mu">Đang có mật khẩu: <b>${S.profiles.length}</b>/${STUDENTS.length}</div></div>
     ${S.pwlogErr ? `<div class="card"><p class="tag-no">Không đọc được nhật ký: ${esc(S.pwlogErr)}</p><p class="mu">Thêm <code>pwlog</code> và <code>warns</code> vào Firestore Rules rồi Publish.</p></div>` : ""}
     ${!cloud ? `<div class="card"><p class="tag-no">Đang ở chế độ thử: chỉ thấy lượt đặt mật khẩu trên cùng máy này.</p></div>` : ""}
+    ${pwAccountsCard()}
     <div class="card"><h3>Nghi vấn</h3>${gp || `<p class="mu">Chưa thấy thiết bị nào đặt mật khẩu cho nhiều tài khoản.</p>`}${ipHint}
       <p class="mu"><small>Mật khẩu mặc định của mọi học sinh là <b>trống</b>; chỉ tài khoản dev có mật khẩu. Nhóm nghi vấn tính theo mã thiết bị (lưu trong trình duyệt). Học sinh xóa dữ liệu trình duyệt hoặc dùng ẩn danh sẽ có mã mới, lúc đó hãy đối chiếu thêm IP và giờ.</small></p></div>
     <div class="card"><h3>Toàn bộ lượt gần đây</h3><div class="tw"><table><tr><th>Giờ</th><th>Tài khoản</th><th></th><th>IP</th><th>Thiết bị</th><th></th></tr>${rows || `<tr><td colspan="6" class="mu">Chưa có lượt nào.</td></tr>`}</table></div></div></div>`;
