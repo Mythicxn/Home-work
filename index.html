@@ -88,9 +88,15 @@ div.op{cursor:default}
 /* câu đúng/sai: hai nút cố định */
 .st{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;align-items:center;padding:8px 0;border-top:1px dashed var(--bd)}
 .st>span:first-child{min-width:0;overflow-wrap:anywhere}
-#ntov{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,7,40,.62)}
-#ntov .card{max-width:480px;width:100%;margin:0;box-shadow:0 24px 60px rgba(5,7,40,.5)}
-#ntov .nt-body{white-space:pre-wrap;max-height:50vh;overflow:auto;overflow-wrap:anywhere}
+#ntov,#wnov{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,7,40,.62)}
+#wnov{z-index:1001}
+#ntov .card,#wnov .card{max-width:480px;width:100%;margin:0;box-shadow:0 24px 60px rgba(5,7,40,.5)}
+#wnov .card.wide{max-width:640px}
+#ntov .nt-body,#wnov .nt-body{white-space:pre-wrap;max-height:50vh;overflow:auto;overflow-wrap:anywhere}
+.pl tr.flag td{background:rgba(224,60,60,.13)}
+.pl .gp{border:1.5px solid var(--no);border-radius:12px;padding:12px 14px;margin:10px 0;background:rgba(224,60,60,.06)}
+.pl .gp ul{margin:6px 0 10px;padding-left:20px}
+.pl code{font-size:.82em;word-break:break-all}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 14px}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border:1.5px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);font-weight:600;font-size:.88rem}
 .chip small{opacity:.65;font-weight:500}
@@ -382,7 +388,7 @@ const IMG_LIMIT = 900000;
 function imgBytes(text) { return tokensOf(text).reduce((n, id) => n + ((S.quiz.imgs[ikey(id)] || "").length), 0); }
 
 /* ===================== TRẠNG THÁI ===================== */
-const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", ai: null, aiCache: {}, aiBusy: {} };
+const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", pwlog: [], pwlogErr: "", pwlogReady: false, ai: null, aiCache: {}, aiBusy: {} };
 
 const pkey = n => norm(n).replace(/\s+/g, "_");
 async function pwHash(name, pw) {
@@ -423,7 +429,7 @@ async function login() {
   $("login").hidden = true; $("app").hidden = false;
   $("who").innerHTML = `<span>${esc(S.user)}${S.admin ? " (quản trị)" : ""}</span><button onclick="logout()">Đổi người</button>`;
   start();
-  if (!S.admin) liveInit();
+  if (!S.admin) { liveInit(); checkWarn(); }
 }
 function logout() { (cloud ? firebase.auth().signOut() : Promise.resolve()).catch(() => {}).finally(() => location.reload()); }
 $("lg2").src = $("lg").src;
@@ -449,6 +455,11 @@ function start() {
     if (S.admin) {
       store.sub("live", a => { S.live = a; S.liveErr = ""; renderSide(); if (S.view === "live") renderMain(); }, e => { S.liveErr = e.message || String(e); if (S.view === "live") renderMain(); });
       setInterval(() => { renderSide(); if (S.view === "live") renderMain(); }, 30000);
+      store.sub("pwlog", a => {
+        S.pwlog = a.sort((x, y) => y.t - x.t); S.pwlogErr = ""; S.pwlogReady = true;
+        if (S.view === "pwlog") { pwSeen(); renderMain(); } else pwAlert();
+        renderSide();
+      }, e => { S.pwlogErr = e.message || String(e); if (S.view === "pwlog") renderMain(); });
     }
   }
   go("home");
@@ -1098,7 +1109,7 @@ async function loadPwBox() {
     <p><label>Nhập lại mật khẩu<input type="password" id="pw2" autocomplete="new-password"></label></p>
     <p id="pwmsg" role="alert"></p>
     <div class="row"><button onclick="savePw()">${has ? "Đổi mật khẩu" : "Đặt mật khẩu"}</button>${has ? `<button class="d" onclick="removePw()">Xóa mật khẩu</button>` : ""}</div>
-    <p class="mu"><small>Quên mật khẩu? Nhờ quản trị viên xóa mật khẩu cho bạn.</small></p>`;
+    <p class="mu"><small>Quên mật khẩu? Nhờ quản trị viên xóa mật khẩu cho bạn. Khi đặt/đổi mật khẩu, hệ thống ghi lại thời gian, địa chỉ IP và thiết bị để quản trị viên phát hiện việc đặt mật khẩu hộ người khác.</small></p>`;
 }
 function pwMsg(t, ok) { const e = $("pwmsg"); if (e) { e.className = ok ? "tag-ok" : "tag-no"; e.textContent = t; } }
 async function savePw() {
@@ -1109,6 +1120,7 @@ async function savePw() {
     const pr = await store.get("profiles", pkey(S.user));
     if (pr && pr.hash && await pwHash(S.user, $("pw0") ? $("pw0").value : "") !== pr.hash) return pwMsg("Mật khẩu hiện tại chưa đúng.");
     await store.put("profiles", { id: pkey(S.user), name: S.user, hash: await pwHash(S.user, p1), t: Date.now() });
+    await logPw(pr && pr.hash ? "change" : "set");
   } catch (e) { return pwMsg("Không lưu được: " + (e.message || e)); }
   await loadPwBox(); pwMsg("Đã lưu mật khẩu.", true);
 }
@@ -1118,15 +1130,124 @@ async function removePw() {
     if (pr && pr.hash && await pwHash(S.user, $("pw0") ? $("pw0").value : "") !== pr.hash) return pwMsg("Nhập đúng mật khẩu hiện tại để xóa.");
     if (!confirm("Xóa mật khẩu? Ai cũng có thể vào bằng tên của bạn.")) return;
     await store.del("profiles", pkey(S.user));
+    await logPw("remove");
   } catch (e) { return pwMsg("Không xóa được: " + (e.message || e)); }
   await loadPwBox(); pwMsg("Đã xóa mật khẩu.", true);
 }
 async function resetPw() {
   const n = $("rsel").value, m = $("rmsg");
   if (!confirm("Xóa mật khẩu của " + n + "?")) return;
-  try { await store.del("profiles", pkey(n)); m.className = "tag-ok"; m.textContent = "Đã xóa mật khẩu của " + n + "."; }
+  try { await resetKey(pkey(n)); m.className = "tag-ok"; m.textContent = "Đã xóa mật khẩu của " + n + "."; }
   catch (e) { m.className = "tag-no"; m.textContent = "Không xóa được: " + (e.message || e); }
 }
+
+/* ===================== NHẬT KÝ ĐẶT MẬT KHẨU + CẢNH CÁO (dev) ===================== */
+// Mặc định mọi tài khoản học sinh KHÔNG có mật khẩu (chưa có bản ghi trong "profiles"). Chỉ khi học sinh tự đặt mới có.
+// Mỗi lần đặt/đổi/xóa mật khẩu → ghi 1 dòng vào "pwlog" (tên, giờ, IP, mã thiết bị, trình duyệt). Dev xem ở mục 🔐 Nhật ký mật khẩu.
+// "Mã thiết bị" là mã ngẫu nhiên lưu trong trình duyệt: đáng tin hơn IP vì cả trường thường dùng chung 1 IP wifi.
+function devId() {
+  try { let d = localStorage.getItem("lh_dev"); if (!d) { d = "d" + uid() + uid(); localStorage.setItem("lh_dev", d); } return d; }
+  catch (e) { return S._dev || (S._dev = "d" + uid() + uid()); }
+}
+async function getIP() {
+  const ask = async (u, f) => { const c = new AbortController(), t = setTimeout(() => c.abort(), 4000); try { const r = await fetch(u, { signal: c.signal, cache: "no-store" }); return f(await r.text()) || ""; } finally { clearTimeout(t); } };
+  try { const ip = await ask("https://api64.ipify.org?format=json", t => JSON.parse(t).ip); if (ip) return ip; } catch (e) {}
+  try { const ip = await ask("https://www.cloudflare.com/cdn-cgi/trace", t => (t.match(/^ip=(.+)$/m) || [])[1]); if (ip) return ip; } catch (e) {}
+  return "";
+}
+function uaShort() {
+  const u = navigator.userAgent || "";
+  const os = /Android/.test(u) ? "Android" : /iPhone|iPad|iPod/.test(u) ? "iOS" : /Windows/.test(u) ? "Windows" : /Mac OS/.test(u) ? "macOS" : /CrOS/.test(u) ? "ChromeOS" : /Linux/.test(u) ? "Linux" : "?";
+  const br = /Edg\//.test(u) ? "Edge" : /OPR\/|Opera/.test(u) ? "Opera" : /Firefox\//.test(u) ? "Firefox" : /coc_coc/i.test(u) ? "CocCoc" : /Chrome\//.test(u) ? "Chrome" : /Safari\//.test(u) ? "Safari" : "?";
+  return br + " · " + os + " · " + screen.width + "×" + screen.height;
+}
+async function logPw(action) { // không bao giờ chặn việc đặt mật khẩu nếu ghi log lỗi
+  try {
+    const ip = await getIP();
+    await Promise.race([store.put("pwlog", { id: uid(), name: S.user, key: pkey(S.user), action, t: Date.now(), ip, dev: devId(), ua: uaShort() }), new Promise((_, rj) => setTimeout(() => rj(new Error("timeout")), 6000))]);
+  } catch (e) { console.warn("pwlog", e); }
+}
+const fmtT = t => new Date(t).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+const PW_SEEN = "lh_pwlog_seen";
+const pwSeenT = () => { try { return +localStorage.getItem(PW_SEEN) || 0; } catch (e) { return S._pwSeen || 0; } };
+const pwActive = () => S.pwlog.filter(x => x.action !== "remove" && !x.reset);            // mật khẩu HS đặt và chưa bị dev reset
+const pwUnseen = () => { const s = pwSeenT(); return pwActive().filter(x => x.t > s); };
+function pwSeen() { const t = S.pwlog.reduce((m, x) => Math.max(m, x.t || 0), 0); S._pwSeen = t; try { localStorage.setItem(PW_SEEN, String(t)); } catch (e) {} }
+function pwGroups(field, min) { // nhóm theo mã thiết bị / IP, chỉ lấy nhóm có >= min tài khoản khác nhau
+  const m = new Map();
+  pwActive().forEach(x => { const k = x[field]; if (!k) return; if (!m.has(k)) m.set(k, []); m.get(k).push(x); });
+  return [...m].map(([k, ev]) => { const accs = new Map(); ev.forEach(e => { if (!accs.has(e.key) || accs.get(e.key).t < e.t) accs.set(e.key, e); }); return { k, ev, accs: [...accs.values()].sort((a, b) => b.t - a.t) }; }).filter(g => g.accs.length >= min);
+}
+const pwFlagged = () => pwGroups("dev", 2);
+const devCount = x => { const g = pwFlagged().find(g => g.k === x.dev); return g ? g.accs.length : 1; };
+
+function closeW() { const d = $("wnov"); if (d) d.remove(); }
+function showW(html, wide) {
+  closeW();
+  const d = document.createElement("div"); d.id = "wnov"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+  d.innerHTML = `<div class="card pl${wide ? " wide" : ""}">${html}</div>`;
+  d.addEventListener("keydown", e => { if (e.key === "Escape") closeW(); });
+  document.body.appendChild(d); const b = d.querySelector("button"); if (b) b.focus();
+}
+function pwAlert() { // cửa sổ thông báo dành cho dev
+  if (!S.admin) return;
+  const nu = pwUnseen(); if (!nu.length) return;
+  const rows = nu.slice(0, 8).map(x => { const c = devCount(x); return `<li><b>${esc(x.name)}</b> ${x.action === "change" ? "đổi" : "đặt"} mật khẩu · ${fmtT(x.t)}<br><small class="mu">IP ${esc(x.ip || "không lấy được")} · ${esc(x.ua || "")} · thiết bị <code>${esc((x.dev || "").slice(-6))}</code></small>${c > 1 ? `<br><b class="tag-no">⚠ Thiết bị này đã đặt mật khẩu cho ${c} tài khoản</b>` : ""}</li>`; }).join("");
+  const fl = pwFlagged().length;
+  showW(`<h3>🔐 Có học sinh vừa đặt mật khẩu</h3>${fl ? `<p class="tag-no">⚠ Đang có ${fl} thiết bị nghi đặt mật khẩu cho nhiều tài khoản.</p>` : ""}<ul style="padding-left:20px;margin:8px 0;max-height:45vh;overflow:auto">${rows}</ul>${nu.length > 8 ? `<p class="mu">…và ${nu.length - 8} lượt nữa.</p>` : ""}<div class="row" style="margin-top:12px"><button onclick="closeW();go('pwlog')">Xem nhật ký</button><button class="g" onclick="pwSeen();closeW();renderSide()">Đóng</button></div>`);
+}
+async function resetKey(key) { // xóa mật khẩu 1 tài khoản + đánh dấu các dòng log của nó là đã reset
+  await store.del("profiles", key);
+  const now = Date.now();
+  await Promise.all(S.pwlog.filter(x => x.key === key && !x.reset).map(x => store.patch("pwlog", x.id, { reset: now }).catch(() => {})));
+}
+async function resetRow(key, name) {
+  if (!confirm("Xóa mật khẩu của " + name + "?")) return;
+  try { await resetKey(key); } catch (e) { alert("Không xóa được: " + (e.message || e)); }
+}
+async function resetGroup(dev) {
+  const g = pwFlagged().find(g => g.k === dev); if (!g) return;
+  if (!confirm("Xóa mật khẩu của " + g.accs.length + " tài khoản:\n" + g.accs.map(a => "• " + a.name).join("\n"))) return;
+  try { for (const a of g.accs) await resetKey(a.key); } catch (e) { alert("Không xóa hết được: " + (e.message || e)); }
+}
+const WARN_DEFAULT = "Hệ thống phát hiện thiết bị này đặt mật khẩu cho nhiều tài khoản không phải của bạn. Việc đó không được phép. Các mật khẩu đó đã bị xóa. Nếu tái phạm, em sẽ bị xử lý theo quy định của lớp.";
+async function warnGroup(dev) {
+  const text = prompt("Nội dung cảnh cáo (hiện cho BẤT KỲ ai đăng nhập từ thiết bị này, 1 lần):", WARN_DEFAULT);
+  if (!text || !text.trim()) return;
+  try { await store.put("warns", { id: "dev_" + dev, text: text.trim(), t: Date.now() }); alert("Đã gửi cảnh cáo. Hiện ra ở lần đăng nhập tiếp theo trên thiết bị đó."); }
+  catch (e) { alert("Không gửi được: " + (e.message || e) + "\nKiểm tra Firestore Rules cho “warns”."); }
+}
+async function checkWarn() { // học sinh đăng nhập → xem có cảnh cáo cho thiết bị / tài khoản này không
+  for (const id of ["dev_" + devId(), "n_" + pkey(S.user)]) {
+    try {
+      const w = await store.get("warns", id); if (!w || !String(w.text || "").trim()) continue;
+      const k = "lh_warn_" + id; let seen = null; try { seen = localStorage.getItem(k); } catch (e) {}
+      if (seen === String(w.t)) continue;
+      try { localStorage.setItem(k, String(w.t)); } catch (e) {}
+      showW(`<h3>⚠ Cảnh cáo</h3><div class="nt-body">${esc(w.text)}</div><div class="row" style="margin-top:14px"><button onclick="closeW()">Đã hiểu</button></div>`);
+      return;
+    } catch (e) {}
+  }
+}
+function renderPwLog() {
+  const fl = pwFlagged(), ipg = pwGroups("ip", 2).filter(g => !fl.some(f => f.accs.length && g.accs.every(a => f.accs.some(b => b.key === a.key))));
+  const gp = fl.map(g => `<div class="gp"><b class="tag-no">⚠ Một thiết bị đặt mật khẩu cho ${g.accs.length} tài khoản</b>
+    <div class="mu"><small>Thiết bị <code>${esc(g.k.slice(-8))}</code> · ${esc(g.accs[0].ua || "")} · IP: ${esc([...new Set(g.ev.map(e => e.ip).filter(Boolean))].join(", ") || "không lấy được")}</small></div>
+    <ul>${g.accs.map(a => `<li><b>${esc(a.name)}</b> <small class="mu">· ${fmtT(a.t)}</small></li>`).join("")}</ul>
+    <div class="row"><button class="d" onclick="resetGroup('${esc(g.k)}')">Xóa mật khẩu cả ${g.accs.length} tài khoản</button><button onclick="warnGroup('${esc(g.k)}')">Gửi cảnh cáo cho thiết bị này</button></div></div>`).join("");
+  const ipHint = ipg.length ? `<p class="mu"><small>Cùng IP (có thể chỉ là chung wifi trường): ${ipg.map(g => `${esc(g.k)} → ${g.accs.length} tài khoản`).join("; ")}.</small></p>` : "";
+  const rows = S.pwlog.slice(0, 200).map(x => {
+    const act = x.action === "remove" ? "xóa" : x.action === "change" ? "đổi" : "đặt", c = !x.reset && x.action !== "remove" ? devCount(x) : 1;
+    return `<tr class="${c > 1 ? "flag" : ""}"><td>${fmtT(x.t)}</td><td><b>${esc(x.name)}</b></td><td>${act}</td><td>${esc(x.ip || "–")}</td><td><small>${esc(x.ua || "")}<br><code>${esc((x.dev || "").slice(-6))}</code></small></td><td>${x.reset ? `<span class="mu">đã reset</span>` : x.action === "remove" ? "" : `<button class="d" onclick="resetRow('${esc(x.key)}','${esc(x.name).replace(/'/g, "\\'")}')">Xóa mật khẩu</button>`}</td></tr>`;
+  }).join("");
+  return `<div class="pl"><div class="row sp"><h2>🔐 Nhật ký mật khẩu</h2><div class="mu">Đang có mật khẩu: <b>${new Set(pwActive().map(x => x.key)).size}</b></div></div>
+    ${S.pwlogErr ? `<div class="card"><p class="tag-no">Không đọc được nhật ký: ${esc(S.pwlogErr)}</p><p class="mu">Thêm <code>pwlog</code> và <code>warns</code> vào Firestore Rules rồi Publish.</p></div>` : ""}
+    ${!cloud ? `<div class="card"><p class="tag-no">Đang ở chế độ thử: chỉ thấy lượt đặt mật khẩu trên cùng máy này.</p></div>` : ""}
+    <div class="card"><h3>Nghi vấn</h3>${gp || `<p class="mu">Chưa thấy thiết bị nào đặt mật khẩu cho nhiều tài khoản.</p>`}${ipHint}
+      <p class="mu"><small>Mật khẩu mặc định của mọi học sinh là <b>trống</b>; chỉ tài khoản dev có mật khẩu. Nhóm nghi vấn tính theo mã thiết bị (lưu trong trình duyệt). Học sinh xóa dữ liệu trình duyệt hoặc dùng ẩn danh sẽ có mã mới, lúc đó hãy đối chiếu thêm IP và giờ.</small></p></div>
+    <div class="card"><h3>Toàn bộ lượt gần đây</h3><div class="tw"><table><tr><th>Giờ</th><th>Tài khoản</th><th></th><th>IP</th><th>Thiết bị</th><th></th></tr>${rows || `<tr><td colspan="6" class="mu">Chưa có lượt nào.</td></tr>`}</table></div></div></div>`;
+}
+
 function openSub(id) { S.sub = id; S.tag = ""; S.q = ""; go("list"); }
 
 function renderSide() {
@@ -1134,7 +1255,7 @@ function renderSide() {
     <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
     (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${S.quizzes.filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
     (S.admin ? "" : `<hr><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>⚙ Cài đặt</span></button>`) +
-    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>🎨 Giao diện &amp; mật khẩu HS</span></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s ${S.view === "pwlog" ? "on" : ""}" onclick="go('pwlog')"><span>🔐 Nhật ký mật khẩu</span><small>${pwUnseen().length ? `<b class="tag-no">${pwUnseen().length} mới</b>` : (pwFlagged().length ? `<b class="tag-no">⚠ ${pwFlagged().length}</b>` : "")}</small></button><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>🎨 Giao diện &amp; mật khẩu HS</span></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
 }
 
 function renderMain() {
@@ -1174,6 +1295,9 @@ function renderMain() {
   } else if (S.view === "stats") {
     if (!S.admin) return go("home");
     m.innerHTML = renderStats();
+  } else if (S.view === "pwlog") {
+    if (!S.admin) return go("home");
+    m.innerHTML = renderPwLog();
   } else if (S.view === "aiset") {
     if (!S.admin) return go("home");
     m.innerHTML = renderAiSet();
