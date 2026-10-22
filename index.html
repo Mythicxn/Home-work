@@ -242,7 +242,10 @@ Câu 2: Xét các phát biểu sau về nước:
 a) Nước sôi ở 100°C ở áp suất thường = Đ
 b) Nước đá nặng hơn nước lỏng = S
 c) Nước là hợp chất = Đ
-d) Nước không có thể tích = S`;
+d) Nước không có thể tích = S
+
+Câu 3: Nước sôi ở bao nhiêu độ C (áp suất thường)?
+Đáp án: 100`;
 
 function parse(text) {
   const qs = [], errors = [];
@@ -250,12 +253,15 @@ function parse(text) {
   String(text).split(/\r?\n/).forEach(raw => {
     const l = raw.trim();
     if (!l) return;
-    if ((m = l.match(/^C[âa]u\s*\d*\s*[:.)]\s*(.*)$/i))) { cur = { q: m[1], opts: [], sts: [], ans: null }; qs.push(cur); }
+    if ((m = l.match(/^C[âa]u\s*(\d*)\s*[:.)]\s*(.*)$/i))) { cur = { n: m[1], q: m[2], opts: [], sts: [], ans: null, raw: "" }; qs.push(cur); }
     else if (!cur) return;
     // ý đúng/sai: a) b) c) d), A. B. C. D. hoặc I. II. III. IV. kết thúc bằng "= Đ" / "= S" (đặt TRƯỚC nhánh phương án A-D)
     else if ((m = l.match(/^([a-d])[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S|s)$/)) || (m = l.match(/^([A-D]|IV|III|II|I)[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S)$/))) cur.sts.push({ k: m[1], t: m[2], v: m[3].toUpperCase() === "Đ" });
     else if ((m = l.match(/^([A-D])[.)]\s*(.*)$/))) cur.opts.push({ k: m[1], t: m[2] });
-    else if ((m = l.match(/^(?:Đáp án|Dap an|ĐA|DA)\s*[:.]\s*([A-Da-d])/i))) cur.ans = m[1].toUpperCase();
+    else if ((m = l.match(/^(?:Đáp án|Dap an|ĐA|DA)\s*[:.]\s*(.*)$/i))) {
+      const v = m[1].trim(), L = v.match(/^([A-Da-d])(?![\p{L}\p{N}])/u);
+      if (L) cur.ans = L[1].toUpperCase(); else cur.raw = v; // raw: đáp án viết bằng nội dung (vd "2", "Hình 3") hoặc câu trả lời ngắn
+    }
     else cur.q += " " + l;
   });
   // chuẩn hóa
@@ -266,14 +272,33 @@ function parse(text) {
     }
     // câu đúng/sai: đổi nhãn (I, II, A, B...) về a, b, c, d để hiển thị và chấm điểm
     q.sts.forEach((s, i) => { s.k = String.fromCharCode(97 + i); });
+    // đáp án viết bằng nội dung phương án (vd "Đáp án: 2" hoặc "Đáp án: Hình 3") → đổi về chữ cái
+    if (!q.ans && q.opts.length >= 2 && q.raw) {
+      const t = saNorm(q.raw), o = q.opts.find(o => saNorm(o.t) === t);
+      if (o) q.ans = o.k;
+    }
+    // câu trả lời ngắn: không có phương án, không có ý a-d, chỉ có "Đáp án: ..." (bỏ qua chỗ trống …… chưa điền)
+    if (!q.opts.length && !q.sts.length && q.raw && !/^[\s.…_\-–—]*$/.test(q.raw)) q.sa = q.raw;
   });
   const ok = [];
   qs.forEach((q, i) => {
-    if (q.sts.length >= 2) ok.push(q);
+    const lab = "Câu " + (q.n || i + 1) + " (“" + String(q.q).replace(/\[(?:ảnh|anh|img)\s*:[^\]]*\]/gi, "").trim().slice(0, 30) + "…”)";
+    if (q.sts.length >= 2 || q.sa !== undefined) ok.push(q);
     else if (q.opts.length >= 2 && q.ans && q.opts.some(o => o.k === q.ans)) ok.push(q);
-    else errors.push("Câu " + (i + 1) + " thiếu lựa chọn hoặc đáp án");
+    else errors.push(lab + ": " + (
+      q.sts.length === 1 ? "chỉ có 1 ý đúng/sai, cần ít nhất 2 ý" :
+      q.opts.length >= 2 ? (q.ans ? "đáp án " + q.ans + " không có trong các phương án" : q.raw ? "đáp án “" + q.raw + "” không khớp phương án nào" : "thiếu dòng “Đáp án: A/B/C/D”") :
+      q.opts.length === 1 ? "chỉ có 1 phương án" :
+      q.raw ? "dòng “Đáp án:” chưa có đáp án" : "không có phương án A–D, ý a)–d) hay dòng “Đáp án:”"));
   });
   return { qs: ok, errors };
+}
+// chuẩn hóa để so sánh đáp án ngắn: bỏ khoảng trắng, đổi dấu phẩy thành chấm, bỏ dấu chấm cuối
+function saNorm(s) { return String(s).toLowerCase().normalize("NFC").replace(/\s+/g, "").replace(/,/g, ".").replace(/[.。]+$/, ""); }
+function saOk(q, a) {
+  if (a === undefined) return false;
+  const x = saNorm(a); if (!x) return false;
+  return String(q.sa).split(/[;|]/).some(alt => { const y = saNorm(alt); if (!y) return false; if (x === y) return true; const nx = Number(x), ny = Number(y); return isFinite(nx) && isFinite(ny) && nx === ny; });
 }
 
 function grade(qs, A) {
@@ -283,7 +308,8 @@ function grade(qs, A) {
       const c = q.sts.filter(s => A[i + s.k] === s.v).length, n = q.sts.length;
       sc += n === 4 ? [0, .1, .25, .5, 1][c] : c / n;
       if (c === n) right++;
-    } else if (A[i] === q.ans) { sc++; right++; }
+    } else if (q.sa !== undefined) { if (saOk(q, A[i])) { sc++; right++; } }
+    else if (A[i] === q.ans) { sc++; right++; }
   });
   return { score: Math.round(sc / qs.length * 100) / 10, right };
 }
@@ -441,10 +467,11 @@ const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt 
 const aiReady = () => !!(S.ai && S.ai.enabled && S.ai.hasKey && AI_DEF[S.ai.provider]);
 const aiMd = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ").replace(/\n/g, "<br>");
 const plain = t => String(t).replace(IMG_RE, "[hình minh họa - AI không xem được]");
-const qOk = (q, i) => q.sts.length ? q.sts.every(s => S.A[i + s.k] === s.v) : S.A[i] === q.ans;
+const qOk = (q, i) => q.sts.length ? q.sts.every(s => S.A[i + s.k] === s.v) : q.sa !== undefined ? saOk(q, S.A[i]) : S.A[i] === q.ans;
 function aiQText(q, i) {
   const A = S.A; let t = `Câu ${i + 1}: ${plain(q.q)}\n`;
   if (q.sts.length) q.sts.forEach(s => { const a = A[i + s.k]; t += `${s.k}) ${plain(s.t)} | Đáp án đề: ${s.v ? "Đúng" : "Sai"} | HS chọn: ${a === undefined ? "bỏ trống" : a ? "Đúng" : "Sai"}\n`; });
+  else if (q.sa !== undefined) t += `Câu trả lời ngắn | Đáp án đề: ${q.sa} | HS nhập: ${A[i] || "bỏ trống"}\n`;
   else { q.opts.forEach(o => t += `${o.k}. ${plain(o.t)}\n`); t += `Đáp án đề: ${q.ans} | HS chọn: ${A[i] || "bỏ trống"}\n`; }
   return t;
 }
@@ -731,6 +758,7 @@ function readAnswers() {
   const A = {}; let miss = 0;
   S.qs.forEach((q, i) => {
     if (q.sts.length) q.sts.forEach(s => { const r = document.querySelector(`input[name="q${i}${s.k}"]:checked`); if (r) A[i + s.k] = r.value === "1"; else miss++; });
+    else if (q.sa !== undefined) { const t = document.querySelector(`input.sa[name="q${i}"]`), v = t ? t.value.trim() : ""; if (v) A[i] = v; else miss++; }
     else { const r = document.querySelector(`input[name="q${i}"]:checked`); if (r) A[i] = r.value; else miss++; }
   });
   return { A, miss };
@@ -738,6 +766,7 @@ function readAnswers() {
 function applyAnswers() {
   S.qs.forEach((q, i) => {
     if (q.sts.length) q.sts.forEach(s => { const a = S.A[i + s.k]; if (a !== undefined) { const r = document.querySelector(`input[name="q${i}${s.k}"][value="${a ? 1 : 0}"]`); if (r) r.checked = true; } });
+    else if (q.sa !== undefined) { const t = document.querySelector(`input.sa[name="q${i}"]`); if (t && S.A[i] !== undefined) t.value = S.A[i]; }
     else if (S.A[i] !== undefined) { const r = document.querySelector(`input[name="q${i}"][value="${S.A[i]}"]`); if (r) r.checked = true; }
   });
 }
@@ -826,7 +855,7 @@ function renderSide() {
 }
 
 function renderMain() {
-  const m = $("main"); m.onchange = null;
+  const m = $("main"); m.onchange = null; m.oninput = null;
   $("board").hidden = S.view !== "home";
   if (S.view === "home") {
     m.innerHTML = `<div class="card"><h2>Chào ${esc(S.user)}</h2>
@@ -847,10 +876,11 @@ function renderMain() {
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.</div></div>` +
       S.qs.map((q, i) => `<div class="card"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
         (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${R(s.t)}</span><span class="tf-options"><label class="tf-choice yes"><input type="radio" name="q${i}${s.k}" value="1"> <span>✓ Đúng</span></label><label class="tf-choice no"><input type="radio" name="q${i}${s.k}" value="0"> <span>✕ Sai</span></label></span></div>`).join("")
+          : q.sa !== undefined ? `<input type="text" class="sa" name="q${i}" placeholder="Nhập đáp án của bạn" autocomplete="off" style="margin-top:8px">`
           : q.opts.map(o => `<label class="op"><input type="radio" name="q${i}" value="${o.k}"> ${o.k}. ${R(o.t)}</label>`).join("")) + `</div>`).join("") +
       `<div class="row"><button onclick="submitQuiz()">Nộp bài</button><button class="g" onclick="go('list')">Thoát</button></div>` +
       `<div class="dock"><span class="mphase" id="mph" aria-hidden="true"></span><span id="pc"></span><button onclick="submitQuiz()">Nộp bài</button></div>`;
-    m.onchange = onAnswer; applyAnswers(); updateProg();
+    m.onchange = onAnswer; m.oninput = onAnswer; applyAnswers(); updateProg();
   } else if (S.view === "review") {
     const { score, right } = grade(S.qs, S.A);
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="score">${score}/10</div>
@@ -880,7 +910,7 @@ function renderMain() {
       <details id="epvd" ontoggle="prevQ()" class="card"><summary><b>Xem thử 3 câu đầu</b> (hiển thị công thức và ảnh)</summary><div id="epv"></div></details>
       <div id="eimgs"></div>
       <div class="row"><button onclick="saveQuiz()">Lưu bài</button><button class="g" onclick="go('list')">Hủy</button></div></div>
-      <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) kết thúc bằng “= Đ” hoặc “= S”. Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.<br><br><b>Công thức:</b> viết trong dấu $...$ (kiểu LaTeX), ví dụ <code>$x^2 + 1$</code>, <code>$\\frac{a}{b}$</code>, <code>$\\sqrt{x}$</code>; dùng <code>$$...$$</code> để công thức nằm riêng một dòng.<br><br><b>Hóa học:</b> viết <code>$\\ce{2H2 + O2 -> 2H2O}$</code> hoặc <code>$\\ce{H2SO4}$</code> để hiện đúng chỉ số dưới và mũi tên. Gõ chữ thường thì <code>-&gt;</code> tự đổi thành →, <code>&lt;=&gt;</code> thành ⇌.</div></div>`;
+      <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) (hoặc I. II. III. IV.) kết thúc bằng “= Đ” hoặc “= S”. Câu trả lời ngắn: không có A–D, chỉ ghi “Đáp án: 100” (nhiều đáp án chấp nhận thì ngăn cách bằng dấu ;, số thập phân gõ 1,5 hay 1.5 đều được). Đáp án trắc nghiệm có thể ghi chữ (C) hoặc nội dung phương án (“Đáp án: 2”, “Đáp án: Hình 3”). Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.<br><br><b>Công thức:</b> viết trong dấu $...$ (kiểu LaTeX), ví dụ <code>$x^2 + 1$</code>, <code>$\\frac{a}{b}$</code>, <code>$\\sqrt{x}$</code>; dùng <code>$$...$$</code> để công thức nằm riêng một dòng.<br><br><b>Hóa học:</b> viết <code>$\\ce{2H2 + O2 -> 2H2O}$</code> hoặc <code>$\\ce{H2SO4}$</code> để hiện đúng chỉ số dưới và mũi tên. Gõ chữ thường thì <code>-&gt;</code> tự đổi thành →, <code>&lt;=&gt;</code> thành ⇌.</div></div>`;
     $("ef").onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $("ex").value = r.result; if (!$("et").value) $("et").value = f.name.replace(/\.txt$/i, ""); prevQ(); }; r.readAsText(f, "utf-8"); } };
     $("ei").onchange = async e => {
       for (const f of e.target.files) { const id = newImgId(); await addImg(id, f); insertAtCursor(`[ảnh:${id}]`); }
@@ -901,6 +931,9 @@ function reviewQ(q, i) {
       const a = A[i + s.k], good = a === s.v, lab = x => x === undefined ? "bỏ trống" : x ? "Đúng" : "Sai";
       return `<div class="st"><span>${s.k}) ${R(s.t)}</span><span class="${good ? "tag-ok" : "tag-no"}">${good ? "✓" : "✗"} Bạn chọn: ${lab(a)}${good ? "" : " · Đáp án: " + lab(s.v)}</span></div>`;
     }).join("");
+  } else if (q.sa !== undefined) {
+    ok = saOk(q, A[i]);
+    body = `<div class="op ${ok ? "right" : "wrong"}">Bạn nhập: <b>${A[i] === undefined ? "bỏ trống" : esc(A[i])}</b>${ok ? ` <span class="tag-ok">✓</span>` : ` · Đáp án: <b>${esc(q.sa)}</b>`}</div>`;
   } else {
     ok = A[i] === q.ans;
     body = q.opts.map(o => {
@@ -924,6 +957,7 @@ function shuf(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const
 const KEEP_RE = /tất cả|cả\s+[a-d]\b|\b[a-d]\s*(và|,)\s*[a-d]\b|đều\s+(đúng|sai)|không\s+có\s+đáp\s+án|không\s+đáp\s+án/i;
 function shuffleQuiz(qs) {
   return shuf(qs).map(q => {
+    if (q.sa !== undefined) return q;
     if (q.sts.length) return { ...q, sts: shuf(q.sts).map((s, i) => ({ ...s, k: String.fromCharCode(97 + i) })) };
     if (q.opts.some(o => KEEP_RE.test(o.t))) return q;
     const correct = q.opts.find(o => o.k === q.ans), sh = shuf(q.opts);
@@ -979,7 +1013,7 @@ function prevQ() {
 function prevPreview(qs) {
   const d = $("epvd"); if (!d || !d.open) return;
   $("epv").innerHTML = qs.slice(0, 3).map((q, i) => `<div style="margin:8px 0"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
-    (q.sts.length ? q.sts.map(x => `<div>${x.k}) ${R(x.t)} <small class="mu">= ${x.v ? "Đ" : "S"}</small></div>`).join("") : q.opts.map(o => `<div>${o.k}. ${R(o.t)}${o.k === q.ans ? ` <span class="tag-ok">✓</span>` : ""}</div>`).join("")) + `</div>`).join("") || `<span class="mu">Chưa có câu nào.</span>`;
+    (q.sts.length ? q.sts.map(x => `<div>${x.k}) ${R(x.t)} <small class="mu">= ${x.v ? "Đ" : "S"}</small></div>`).join("") : q.sa !== undefined ? `<div>Đáp án: <b>${esc(q.sa)}</b> <small class="mu">(câu trả lời ngắn)</small></div>` : q.opts.map(o => `<div>${o.k}. ${R(o.t)}${o.k === q.ans ? ` <span class="tag-ok">✓</span>` : ""}</div>`).join("")) + `</div>`).join("") || `<span class="mu">Chưa có câu nào.</span>`;
 }
 function saveQuiz() {
   const title = $("et").value.trim(), text = $("ex").value, r = parse(text);
