@@ -354,7 +354,7 @@ function compress(file, max = 800, quality = 0.72) {
 async function addImg(id, file) { try { S.quiz.imgs[ikey(id)] = await compress(file); } catch (e) { alert(e.message); } }
 function pickImg(id) {
   const i = document.createElement("input"); i.type = "file"; i.accept = "image/*";
-  i.onchange = async () => { if (i.files[0]) { await addImg(id, i.files[0]); prevQ(); } };
+  i.onchange = async () => { if (!i.files[0]) return; const r = await cropFile(i.files[0]); if (r) { S.quiz.imgs[ikey(id)] = r; prevQ(); } };
   i.click();
 }
 function insertAtCursor(t) {
@@ -475,12 +475,12 @@ function aiQText(q, i) {
   else { q.opts.forEach(o => t += `${o.k}. ${plain(o.t)}\n`); t += `Đáp án đề: ${q.ans} | HS chọn: ${A[i] || "bỏ trống"}\n`; }
   return t;
 }
-async function aiCall(system, user, o, imgs) {
+async function aiCall(system, user, o, imgs, json) {
   if (!o) {
     const sec = await store.get("secrets", "ai");
     o = { provider: S.ai.provider, model: S.ai.model, fallbackModel: S.ai.fallbackModel, key: sec && sec.key };
   }
-  if (imgs) o = { ...o, imgs };
+  if (imgs) o = { ...o, imgs }; if (json) o = { ...o, json: true };
   const primary = o.model || AI_DEF[o.provider].model;
   const fallback = String(o.fallbackModel || (S.ai && S.ai.provider === o.provider ? S.ai.fallbackModel : "") || AI_DEF[o.provider].fallback || "").trim();
   try {
@@ -501,7 +501,7 @@ async function aiCallSingle(system, user, o) {
   const model = o.model || AI_DEF[o.provider].model, J = { "Content-Type": "application/json" };
   let r, d;
   if (o.provider === "openai") {
-    r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { ...J, Authorization: "Bearer " + o.key }, body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: o.imgs ? [{ type: "text", text: user }, ...o.imgs.map(b => ({ type: "image_url", image_url: { url: "data:image/jpeg;base64," + b } }))] : user }] }) });
+    r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { ...J, Authorization: "Bearer " + o.key }, body: JSON.stringify({ model, ...(o.json ? { response_format: { type: "json_object" } } : {}), messages: [{ role: "system", content: system }, { role: "user", content: o.imgs ? [{ type: "text", text: user }, ...o.imgs.map(b => ({ type: "image_url", image_url: { url: "data:image/jpeg;base64," + b } }))] : user }] }) });
     d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
     return d.choices[0].message.content;
   }
@@ -510,7 +510,7 @@ async function aiCallSingle(system, user, o) {
     d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
     return d.content.map(c => c.text || "").join("");
   }
-  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }, ...(o.imgs || []).map(b => ({ inlineData: { mimeType: "image/jpeg", data: b } }))] }], generationConfig: { temperature: o.imgs ? .2 : .4, ...(o.imgs ? { maxOutputTokens: 32768 } : {}) } }) });
+  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }, ...(o.imgs || []).map(b => ({ inlineData: { mimeType: "image/jpeg", data: b } }))] }], generationConfig: { ...(o.json ? { responseMimeType: "application/json" } : {}), temperature: o.imgs ? .2 : .4, ...(o.imgs ? { maxOutputTokens: 32768 } : {}) } }) });
   d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
   const c = (d.candidates || [])[0] && d.candidates[0].content;
   if (!c || !c.parts) throw new Error("AI không trả về nội dung.");
@@ -685,14 +685,14 @@ async function aiFigures(files) {
       if (b.length === 4 && b.every(isFinite) && b[2] > b[0] && b[3] > b[1]) figs.push({ n: +m[2], b, q: +m[4], pos: m[5] });
     });
     if (!figs.length) throw new Error("AI không tìm thấy hình nào khớp với đề. Hãy thử chụp rõ hơn hoặc chèn ảnh bằng tay.");
-    const lines = $("ex").value.split("\n"), skipped = []; let okc = 0;
+    const lines = $("ex").value.split("\n"), skipped = [], pend = []; let okc = 0;
     for (const f of figs) {
       const hi = lines.findIndex(l => { const m = l.match(HEAD_RE); return m && +m[1] === f.q; });
       if (hi < 0) { skipped.push(`Câu ${f.q}: không thấy trong đề`); continue; }
       let end = lines.length; for (let j = hi + 1; j < lines.length; j++) if (HEAD_RE.test(lines[j])) { end = j; break; }
       if (!imgs[f.n - 1]) { skipped.push(`Câu ${f.q}: ảnh số ${f.n} không tồn tại`); continue; }
-      let data; try { data = await cropData(imgs[f.n - 1], f.b); } catch (e) { skipped.push(`Câu ${f.q}: không cắt được hình`); continue; }
-      const id = newImgId(), tok = `[ảnh:${id}]`; S.quiz.imgs[ikey(id)] = data;
+      if (Math.max(...f.b) > 1000) { const im0 = await loadImg(imgs[f.n - 1]); f.b = [f.b[0] / im0.height * 1000, f.b[1] / im0.width * 1000, f.b[2] / im0.height * 1000, f.b[3] / im0.width * 1000]; }
+      const id = newImgId(), tok = `[ảnh:${id}]`; S.quiz.imgs[ikey(id)] = ""; pend.push({ id, src: imgs[f.n - 1], b: f.b, label: "Câu " + f.q });
       let placed = false;
       if (f.pos.toLowerCase() !== "de") {
         for (let j = hi + 1; j < end; j++) {
@@ -708,6 +708,7 @@ async function aiFigures(files) {
       okc++;
     }
     $("ex").value = lines.join("\n"); prevQ();
+    await reviewFigs(pend); if (S.quiz === quiz && $("ex")) prevQ();
     const note = mNote && mNote[1].trim();
     st.innerHTML = `<span class="tag-ok">Đã chèn ${okc}/${figs.length} hình vào đề.</span> Chữ của đề không bị thay đổi, hãy xem lại mục “Ảnh trong đề” và bấm “Đổi ảnh” nếu cắt lệch.` +
       (skipped.length ? `<br><span class="tag-no">Bỏ qua: ${esc(skipped.join("; "))}</span>` : "") +
@@ -715,37 +716,164 @@ async function aiFigures(files) {
   } catch (e) { st.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
 }
 const AI_SCAN_MAX = 10;
+/* ===================== CẮT ẢNH THỦ CÔNG + AI GỢI Ý KHUNG ===================== */
+(function () { const s = document.createElement("style"); s.textContent = `#cm{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:8px}#cm .box{background:var(--card,#fff);color:inherit;border-radius:12px;max-width:980px;width:100%;max-height:96vh;display:flex;flex-direction:column;padding:10px;gap:8px}#cm .cv{flex:1;min-height:0;overflow:auto;background:#222;border-radius:8px;display:flex;justify-content:center;align-items:flex-start}#cm canvas{touch-action:none;cursor:crosshair;display:block}#cm .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}`; document.head.appendChild(s); })();
+const loadImg = s => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Không đọc được ảnh")); i.src = s; });
+const toNorm = (b, prov, im) => { b = (Array.isArray(b) ? b : []).map(Number); if (b.length !== 4 || !b.every(isFinite)) return null; if (prov === "claude") b = [b[0] / im.height * 1000, b[1] / im.width * 1000, b[2] / im.height * 1000, b[3] / im.width * 1000]; return b[2] > b[0] && b[3] > b[1] ? b : null; };
+function parseJson(raw) { const s = String(raw).replace(/```json|```/g, ""), a = s.indexOf("{"), b = s.lastIndexOf("}"); if (a < 0 || b < a) throw new Error("AI không trả về JSON"); return JSON.parse(s.slice(a, b + 1)); }
+async function pool(items, n, fn) { const res = []; let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; res[k] = await fn(items[k], k); } })); return res; }
+const FIGSRC = {}, fk = id => (S.quiz && S.quiz.id || "") + ":" + ikey(id); let PAGES = [];
+async function aiBoxes(src) {
+  if (!aiReady()) throw new Error("AI chưa bật (vào “⚙ Cài đặt AI”).");
+  const im = await loadImg(src), prov = S.ai.provider;
+  const spec = prov === "claude" ? `pixel (ảnh rộng ${im.width}, cao ${im.height}, gốc ở trên-trái)` : "chuẩn hóa 0–1000 (gốc ở trên-trái)";
+  const raw = await aiCall("Bạn tìm hình vẽ, sơ đồ, đồ thị, hình thí nghiệm trong ảnh trang đề. Chỉ trả JSON hợp lệ.", `Trả về JSON {"figs":[[ymin,xmin,ymax,xmax],...]}: mỗi hình một khung ôm sát hình (không gồm chữ của đề), tọa độ ${spec}. Không có hình thì {"figs":[]}.`, null, [src.split(",")[1]], true);
+  return (parseJson(raw).figs || []).map(b => toNorm(b, prov, im)).filter(Boolean);
+}
+// Trả về: dataURL đã cắt | "ACCEPT" (chấp nhận khung AI cho các hình còn lại) | null (bỏ qua)
+function openCrop(src, o = {}) {
+  return new Promise(async resolve => {
+    let im; try { im = await loadImg(src); } catch (e) { return resolve(null); }
+    let rot = 0, tilt = 0, rect = null, drag = null, work, scale = 1, boxes = o.boxes || [], bi = -1;
+    const ov = document.createElement("div"); ov.id = "cm";
+    ov.innerHTML = `<div class="box"><b>${esc(o.title || "Kéo trên ảnh để chọn vùng cần cắt")}</b><div class="mu">Kéo để vẽ khung · kéo trong khung để di chuyển · kéo ô vuông để đổi cỡ · ảnh chụp nghiêng thì dùng thanh “Nghiêng”.</div><div class="cv"><canvas></canvas></div><div class="bar"><button type="button" class="g" data-a="l">⟲ 90°</button><button type="button" class="g" data-a="r">⟳ 90°</button><label>Nghiêng <input type="range" min="-15" max="15" step="0.5" value="0" style="width:130px;vertical-align:middle"> <span class="tv">0°</span></label><button type="button" class="g" data-a="all">Chọn cả ảnh</button>${(o.ai || boxes.length) ? `<button type="button" class="g ai-btn" data-a="ai">${boxes.length ? "Khung AI" : "✨ AI gợi ý khung"}</button>` : ""}</div><div class="bar"><button type="button" data-a="ok">✓ Cắt &amp; dùng</button>${o.skipAll ? `<button type="button" class="g" data-a="acc">Chấp nhận khung AI cho các hình còn lại</button>` : ""}<button type="button" class="g" data-a="no">${esc(o.skipLabel || "Hủy")}</button></div></div>`;
+    document.body.appendChild(ov);
+    const cv = ov.querySelector("canvas"), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const HP = [[0, 0], [.5, 0], [1, 0], [0, .5], [1, .5], [0, 1], [.5, 1], [1, 1]];
+    const draw = () => {
+      const g = cv.getContext("2d"); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(work, 0, 0, cv.width, cv.height);
+      if (!rect) return; const [x, y, w, h] = rect;
+      g.fillStyle = "rgba(0,0,0,.45)"; g.fillRect(0, 0, cv.width, y); g.fillRect(0, y + h, cv.width, cv.height - y - h); g.fillRect(0, y, x, h); g.fillRect(x + w, y, cv.width - x - w, h);
+      g.strokeStyle = "#3aa0ff"; g.lineWidth = 2; g.strokeRect(x, y, w, h); g.fillStyle = "#3aa0ff"; HP.forEach(([fx, fy]) => g.fillRect(x + fx * w - 6, y + fy * h - 6, 12, 12));
+    };
+    const build = keep => {
+      const fr = keep && rect ? [rect[0] / cv.width, rect[1] / cv.height, rect[2] / cv.width, rect[3] / cv.height] : null;
+      const a = (rot + tilt) * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a)), W = im.width, H = im.height;
+      work = document.createElement("canvas"); work.width = Math.round(W * c + H * s); work.height = Math.round(W * s + H * c);
+      const x = work.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, work.width, work.height); x.translate(work.width / 2, work.height / 2); x.rotate(a); x.drawImage(im, -W / 2, -H / 2);
+      const k = Math.min(1, Math.min(innerWidth - 40, 940) / work.width, innerHeight * .62 / work.height);
+      cv.width = Math.round(work.width * k); cv.height = Math.round(work.height * k); scale = cv.width / work.width;
+      rect = fr ? [fr[0] * cv.width, fr[1] * cv.height, fr[2] * cv.width, fr[3] * cv.height] : null; draw();
+    };
+    const setBox = b => { const [y0, x0, y1, x1] = b, p = 12; const Y0 = Math.max(0, y0 - p), X0 = Math.max(0, x0 - p), Y1 = Math.min(1000, y1 + p), X1 = Math.min(1000, x1 + p); rect = [X0 / 1000 * cv.width, Y0 / 1000 * cv.height, (X1 - X0) / 1000 * cv.width, (Y1 - Y0) / 1000 * cv.height]; draw(); };
+    const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+    cv.onpointerdown = e => {
+      const [px, py] = pos(e); cv.setPointerCapture(e.pointerId);
+      if (rect) { const [x, y, w, h] = rect, hit = HP.find(([fx, fy]) => Math.abs(px - (x + fx * w)) < 14 && Math.abs(py - (y + fy * h)) < 14);
+        if (hit) { drag = { t: "rs", fx: hit[0], fy: hit[1] }; return; }
+        if (px > x && px < x + w && py > y && py < y + h) { drag = { t: "mv", dx: px - x, dy: py - y }; return; } }
+      drag = { t: "new", x0: px, y0: py }; rect = [px, py, 0, 0];
+    };
+    cv.onpointermove = e => {
+      if (!drag) return; let [px, py] = pos(e); px = clamp(px, 0, cv.width); py = clamp(py, 0, cv.height);
+      if (drag.t === "new") rect = [Math.min(drag.x0, px), Math.min(drag.y0, py), Math.abs(px - drag.x0), Math.abs(py - drag.y0)];
+      else if (drag.t === "mv") { const w = rect[2], h = rect[3]; rect = [clamp(px - drag.dx, 0, cv.width - w), clamp(py - drag.dy, 0, cv.height - h), w, h]; }
+      else { let [x, y, w, h] = rect, x1 = x + w, y1 = y + h; if (drag.fx === 0) x = px; else if (drag.fx === 1) x1 = px; if (drag.fy === 0) y = py; else if (drag.fy === 1) y1 = py; rect = [Math.min(x, x1), Math.min(y, y1), Math.abs(x1 - x), Math.abs(y1 - y)]; }
+      draw();
+    };
+    cv.onpointerup = () => { drag = null; if (rect && (rect[2] < 6 || rect[3] < 6)) rect = null; draw(); };
+    const sl = ov.querySelector("input[type=range]"), tv = ov.querySelector(".tv");
+    sl.oninput = () => { tilt = +sl.value; tv.textContent = tilt + "°"; build(true); };
+    const close = v => { ov.remove(); resolve(v); };
+    ov.onclick = async e => {
+      const b = e.target.closest("button"); if (!b) return; const a = b.dataset.a;
+      if (a === "l" || a === "r") { rot = (rot + (a === "r" ? 90 : -90) + 360) % 360; build(false); }
+      else if (a === "all") { rect = [0, 0, cv.width, cv.height]; draw(); }
+      else if (a === "ai") {
+        if (!boxes.length) { b.disabled = true; b.textContent = "AI đang tìm…"; try { boxes = await aiBoxes(src); } catch (er) { alert(er.message || er); } b.disabled = false; if (!boxes.length) { b.textContent = "✨ AI gợi ý khung"; if (!b.dataset.w) { b.dataset.w = 1; alert("AI không thấy hình nào, hãy tự kéo khung."); } return; } }
+        if (rot || tilt) { rot = 0; tilt = 0; sl.value = 0; tv.textContent = "0°"; build(false); }
+        bi = (bi + 1) % boxes.length; setBox(boxes[bi]); b.textContent = `Khung AI ${bi + 1}/${boxes.length} (bấm để đổi)`;
+      }
+      else if (a === "ok") {
+        if (!rect) return alert("Hãy kéo chọn vùng cần cắt (hoặc bấm “Chọn cả ảnh”).");
+        const [x, y, w, h] = rect, sw = w / scale, sh = h / scale, k = Math.min(1, 800 / Math.max(sw, sh)), c = document.createElement("canvas");
+        c.width = Math.round(sw * k); c.height = Math.round(sh * k); const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(work, x / scale, y / scale, sw, sh, 0, 0, c.width, c.height);
+        close(c.toDataURL("image/jpeg", 0.75));
+      }
+      else if (a === "acc") close("ACCEPT"); else if (a === "no") close(null);
+    };
+    build(false);
+    if (boxes.length) { bi = 0; setBox(boxes[0]); const ab = ov.querySelector("[data-a=ai]"); if (ab) ab.textContent = `Khung AI 1/${boxes.length}${boxes.length > 1 ? " (bấm để đổi)" : ""}`; }
+  });
+}
+async function cropFile(f) { const src = await compress(f, 2000, 0.9), r = await openCrop(src, { ai: true, title: "Cắt ảnh: kéo chọn vùng cần lấy" }); return r && r !== "ACCEPT" ? r : null; }
+async function recrop(id) { const f = FIGSRC[fk(id)]; if (!f) return; const r = await openCrop(f.src, { boxes: [f.b], ai: true, title: "Cắt lại hình " + id }); if (r && r !== "ACCEPT") { S.quiz.imgs[ikey(id)] = r; prevQ(); } }
+async function reviewFigs(list) {
+  let acc = false, n = 0;
+  for (const f of list) {
+    let data = null;
+    if (acc) data = await cropData(f.src, f.b).catch(() => null);
+    else { n++; const r = await openCrop(f.src, { boxes: [f.b], skipAll: true, skipLabel: "Bỏ hình này", title: `Hình ${n}/${list.length} (${f.label}) – chỉnh khung nếu lệch rồi bấm “Cắt & dùng”` });
+      if (r === "ACCEPT") { acc = true; data = await cropData(f.src, f.b).catch(() => null); } else data = r; }
+    if (data) { S.quiz.imgs[ikey(f.id)] = data; FIGSRC[fk(f.id)] = { src: f.src, b: f.b }; }
+  }
+}
+
+/* ===================== AI CHUYỂN ẢNH ĐỀ → CÂU HỎI (JSON có cấu trúc, mỗi trang 1 lượt) ===================== */
+const PG_SYS = "Bạn chuyển ảnh chụp MỘT trang đề trắc nghiệm tiếng Việt thành JSON. Chỉ trả JSON hợp lệ, không giải thích, không dùng ```.";
+const PG_USER = (w, h, prov) => `Ảnh là một trang đề chụp bằng điện thoại (có thể nghiêng, có ngón tay, thấy lấp ló trang bên cạnh, có chữ viết tay/khoanh tròn của học sinh). Chỉ lấy câu hỏi của trang CHÍNH ở giữa ảnh; bỏ qua trang bên cạnh, số trang, tiêu đề đầu trang, chữ viết tay.
+Trả về JSON:
+{"questions":[{"type":"mcq|tf|short","stem":"đề dẫn đầy đủ (kể cả các ý I,II,III,IV hoặc gạch đầu dòng mô tả thí nghiệm)","options":{"A":"...","B":"...","C":"...","D":"..."},"statements":[{"k":"a","t":"...","v":true}],"answer":"B","fig_stem":[[ymin,xmin,ymax,xmax]],"fig_opt":{"A":[ymin,xmin,ymax,xmax]},"start_cut":false,"end_cut":false,"unsure":false}],"note":""}
+Quy tắc:
+- mcq: có options A–D, answer là 1 chữ cái. Đề hỏi “có bao nhiêu phát biểu đúng” với đáp án A.1 B.2 C.3 D.4 vẫn là mcq (các ý I–IV nằm trong stem). tf: đề cho các ý a) b) c) d) mỗi ý đúng/sai riêng (v=true nếu đúng). short: không có phương án, answer là chuỗi.
+- Mọi câu phải có answer: tự giải để chọn đáp án đúng nhất; dấu khoanh/chữ viết tay chỉ để tham khảo vì có thể sai. Không chắc thì unsure=true.
+- Công thức viết LaTeX trong $...$, hóa học $\\ce{H2SO4}$; bảng số liệu chuyển thành chữ.
+- Hình vẽ/sơ đồ/đồ thị cần nhìn để làm bài: khung ôm sát hình (không lấy chữ của đề) đặt vào fig_stem (hình thuộc phần đề dẫn) hoặc fig_opt (hình nằm trong đáp án/ý). Tọa độ ${prov === "claude" ? `pixel (ảnh rộng ${w}, cao ${h}, gốc trên-trái)` : "chuẩn hóa 0–1000 (gốc trên-trái)"}. Không có hình thì [] hoặc {}.
+- Câu bắt đầu từ trang trước (thiếu phần đầu): start_cut=true. Câu bị cắt ở cuối trang (thiếu phần sau): end_cut=true. Vẫn ghi phần nhìn thấy.`;
+function pageFigs(q, pi, im, prov) {
+  const out = [], fs = q.fig_stem, list = Array.isArray(fs) ? (typeof fs[0] === "number" ? [fs] : fs) : [];
+  list.forEach(b => { b = toNorm(b, prov, im); if (b) out.push({ p: pi, b, pos: "de" }); });
+  Object.entries(q.fig_opt || {}).forEach(([k, b]) => { b = toNorm(b, prov, im); if (b) out.push({ p: pi, b, pos: k }); });
+  return out;
+}
+function mergePages(rs, prov) {
+  const out = [];
+  rs.forEach((r, pi) => ((r && r.j && r.j.questions) || []).forEach(q => {
+    const figs = pageFigs(q, pi, r.im, prov), last = out[out.length - 1];
+    if (q.start_cut && last && last.end_cut) { // nối câu bị cắt giữa 2 trang
+      last.stem = (last.stem || "") + (q.stem ? "\n" + q.stem : ""); last.options = { ...(last.options || {}), ...(q.options || {}) };
+      last.statements = [...(last.statements || []), ...(q.statements || [])]; if (q.answer) last.answer = q.answer;
+      last.type = q.type || last.type; last.unsure = last.unsure || q.unsure; last.end_cut = q.end_cut; last.figs.push(...figs); return;
+    }
+    q.figs = figs; out.push(q);
+  }));
+  return out;
+}
+function qText(q, num) {
+  const T = s => String(s == null ? "" : s).trim(), alloc = f => { f.id = newImgId(); S.quiz.imgs[ikey(f.id)] = ""; return `[ảnh:${f.id}]`; };
+  const optFig = k => (q.figs || []).find(f => f.pos !== "de" && String(f.pos).toLowerCase() === String(k).toLowerCase());
+  let t = `Câu ${num}: ${T(q.stem)}`; (q.figs || []).filter(f => f.pos === "de").forEach(f => t += "\n" + alloc(f));
+  const sts = q.statements || [], opts = q.options || {}, ok = v => v === true || /^(true|đ|đúng)/i.test(String(v));
+  if (sts.length >= 2) sts.forEach(s => { const f = optFig(s.k); t += `\n${s.k}) ${f ? alloc(f) + " " : ""}${T(s.t)} = ${ok(s.v) ? "Đ" : "S"}`; });
+  else if (Object.keys(opts).length >= 2) { Object.keys(opts).forEach(k => { const f = optFig(k); t += `\n${k}. ${f ? alloc(f) + " " : ""}${T(opts[k])}`; }); t += `\nĐáp án: ${T(q.answer).charAt(0).toUpperCase()}`; }
+  else t += `\nĐáp án: ${T(q.answer)}`;
+  return t;
+}
 async function aiScan(files) {
   const total = files.length; files = [...files].slice(0, AI_SCAN_MAX); if (!files.length) return;
   const st = $("eas"), quiz = S.quiz;
   if (!aiReady()) { st.innerHTML = `<span class="tag-no">AI chưa bật. Vào “⚙ Cài đặt AI” nhập key trước.</span>`; return; }
   try {
-    st.textContent = "Đang đọc ảnh…";
-    const imgs = []; for (const f of files) imgs.push(await compress(f, files.length > 4 ? 1400 : 1600, 0.85));
-    st.textContent = "AI đang chuyển " + files.length + " ảnh thành câu hỏi (" + (files.length > 4 ? "nhiều ảnh nên có thể mất 1–3 phút, đừng đóng trang" : "có thể mất 20–60 giây") + ")…";
-    const raw = await aiCall(SCAN_SYS, SCAN_USER(imgs.length), null, imgs.map(x => x.split(",")[1]));
-    if (S.view !== "edit" || S.quiz !== quiz || !$("ex")) return;
-    const mDe = raw.match(/===DE===([\s\S]*?)(?:===ANH===|$)/), mAnh = raw.match(/===ANH===([\s\S]*?)(?:===GHICHU===|$)/), mNote = raw.match(/===GHICHU===([\s\S]*)$/);
-    if (!mDe || !mDe[1].trim()) throw new Error("AI không trả về đúng định dạng. Hãy thử lại hoặc chụp rõ hơn.");
-    let text = mDe[1].trim();
-    const figs = {};
-    ((mAnh && mAnh[1]) || "").split("\n").forEach(l => {
-      const m = l.match(/^\s*(\S+)\s*\|\s*(\d+)\s*\|\s*([\d.\s,]+)/);
-      if (m) { const b = m[3].split(",").map(Number); if (b.length === 4 && b.every(isFinite) && b[2] > b[0] && b[3] > b[1]) figs[m[1].trim()] = { n: +m[2], b }; }
+    st.textContent = "Đang đọc ảnh…"; const pages = []; for (const f of files) pages.push(await compress(f, 1800, 0.85)); PAGES = pages;
+    const prov = S.ai.provider; let done = 0;
+    const rs = await pool(pages, 3, async (src, i) => {
+      const im = await loadImg(src); let err;
+      for (let t = 0; t < 2; t++) {
+        try { const j = parseJson(await aiCall(PG_SYS, PG_USER(im.width, im.height, prov), null, [src.split(",")[1]], true)); st.textContent = `AI đã đọc ${++done}/${pages.length} trang…`; return { j, im }; }
+        catch (e) { err = e; }
+      }
+      st.textContent = `AI đã đọc ${++done}/${pages.length} trang…`; return { err: `Trang ${i + 1}: ${err && err.message || err}`, im };
     });
-    const map = {}; let okc = 0, tot = 0;
-    for (const tok of tokensOf(text)) { const nid = newImgId(); S.quiz.imgs[ikey(nid)] = ""; map[tok] = nid; }
-    for (const tok of Object.keys(map)) {
-      tot++; const f = figs[tok];
-      if (f && imgs[f.n - 1]) { try { S.quiz.imgs[ikey(map[tok])] = await cropData(imgs[f.n - 1], f.b); okc++; } catch (e) {} }
-    }
-    text = text.replace(IMG_RE, (m, id) => map[id.trim()] ? `[ảnh:${map[id.trim()]}]` : m);
-    const ta = $("ex"); ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + "\n\n" : "") + text;
-    prevQ();
-    const note = mNote && mNote[1].trim();
-    st.innerHTML = `<span class="tag-ok">Đã thêm ${parse(text).qs.length} câu.</span> ` +
-      (tot ? `Đã tự cắt ${okc}/${tot} hình${okc < tot ? ", hình còn thiếu hãy bấm “Chọn ảnh” ở mục Ảnh trong đề" : ""}. ` : "") +
-      `Hãy kiểm tra lại nội dung và đáp án trước khi lưu.` + (total > AI_SCAN_MAX ? ` Chỉ xử lý ${AI_SCAN_MAX} ảnh đầu, hãy chạy lại cho các ảnh còn lại.` : "") + (note ? `<br>Ghi chú của AI: ${esc(note)}` : "");
+    if (S.view !== "edit" || S.quiz !== quiz || !$("ex")) return;
+    const errs = rs.filter(r => r.err).map(r => r.err), qs = mergePages(rs, prov).filter(q => String(q.answer || "").trim() || (q.statements || []).length >= 2);
+    if (!qs.length) throw new Error("AI không đọc được câu hỏi nào. " + errs.join("; "));
+    const ta = $("ex"); let num = (ta.value.match(/^\s*C[âa]u\s*\d+\s*[:.)]/gim) || []).length; const unsure = [], list = [];
+    const text = qs.map(q => { num++; const t = qText(q, num); if (q.unsure || q.end_cut) unsure.push(num); (q.figs || []).forEach(f => { if (f.id) list.push({ id: f.id, src: PAGES[f.p], b: f.b, label: "Câu " + num }); }); return t; }).join("\n\n");
+    ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + "\n\n" : "") + text; prevQ();
+    st.innerHTML = `<span class="tag-ok">Đã thêm ${qs.length} câu.</span> ` + (list.length ? `Đang mở bước kiểm tra ${list.length} hình…` : "");
+    if (list.length) { await reviewFigs(list); if (S.quiz === quiz && $("ex")) prevQ(); }
+    const have = list.filter(f => S.quiz.imgs[ikey(f.id)]).length;
+    st.innerHTML = `<span class="tag-ok">Đã thêm ${qs.length} câu.</span> ` + (list.length ? `Hình: ${have}/${list.length} đã chèn (mục “Ảnh trong đề” có nút “✂ Cắt lại”). ` : "") + `Hãy kiểm tra lại nội dung và đáp án trước khi lưu.` + (unsure.length ? `<br><span class="tag-no">AI chưa chắc / câu bị cắt dở: Câu ${unsure.join(", ")}</span>` : "") + (errs.length ? `<br><span class="tag-no">${esc(errs.join("; "))}</span>` : "") + (total > AI_SCAN_MAX ? ` Chỉ xử lý ${AI_SCAN_MAX} ảnh đầu, hãy chạy lại cho các ảnh còn lại.` : "");
   } catch (e) { st.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
 }
 
@@ -903,7 +1031,7 @@ function renderMain() {
       <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
       <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh tại vị trí con trỏ</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh (trong câu hỏi hoặc đáp án) rồi bấm nút.</span></p>
-      <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI sẽ gõ lại câu hỏi và tự cắt hình minh họa.</span></p>
+      <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI gõ lại câu hỏi theo từng trang, rồi đề xuất khung cắt hình để bạn chỉnh/duyệt.</span></p>
       <p class="row"><button type="button" class="g ai-btn" onclick="$('efi').click()">${AI_ICON}<span>Chỉ cắt hình cho đề đã nhập</span></button><input type="file" id="efi" accept="image/*" multiple hidden><span id="efs" class="mu">Nhập chữ đề trước, rồi chọn ảnh chụp: AI chỉ tìm hình và chèn vào đúng câu, không thêm hay sửa câu hỏi.</span></p>
       <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
       <p id="ep" class="mu"></p>
@@ -913,7 +1041,7 @@ function renderMain() {
       <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) (hoặc I. II. III. IV.) kết thúc bằng “= Đ” hoặc “= S”. Câu trả lời ngắn: không có A–D, chỉ ghi “Đáp án: 100” (nhiều đáp án chấp nhận thì ngăn cách bằng dấu ;, số thập phân gõ 1,5 hay 1.5 đều được). Đáp án trắc nghiệm có thể ghi chữ (C) hoặc nội dung phương án (“Đáp án: 2”, “Đáp án: Hình 3”). Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.<br><br><b>Công thức:</b> viết trong dấu $...$ (kiểu LaTeX), ví dụ <code>$x^2 + 1$</code>, <code>$\\frac{a}{b}$</code>, <code>$\\sqrt{x}$</code>; dùng <code>$$...$$</code> để công thức nằm riêng một dòng.<br><br><b>Hóa học:</b> viết <code>$\\ce{2H2 + O2 -> 2H2O}$</code> hoặc <code>$\\ce{H2SO4}$</code> để hiện đúng chỉ số dưới và mũi tên. Gõ chữ thường thì <code>-&gt;</code> tự đổi thành →, <code>&lt;=&gt;</code> thành ⇌.</div></div>`;
     $("ef").onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $("ex").value = r.result; if (!$("et").value) $("et").value = f.name.replace(/\.txt$/i, ""); prevQ(); }; r.readAsText(f, "utf-8"); } };
     $("ei").onchange = async e => {
-      for (const f of e.target.files) { const id = newImgId(); await addImg(id, f); insertAtCursor(`[ảnh:${id}]`); }
+      for (const f of [...e.target.files]) { const r = await cropFile(f); if (!r) continue; const id = newImgId(); S.quiz.imgs[ikey(id)] = r; insertAtCursor(`[ảnh:${id}]`); }
       e.target.value = ""; prevQ();
     };
     $("eai").onchange = e => { const f = [...e.target.files]; e.target.value = ""; aiScan(f); };
@@ -1005,7 +1133,7 @@ function prevQ() {
   const r = parse($("ex").value), toks = tokensOf($("ex").value);
   $("eimgs").innerHTML = toks.length ? `<div class="card"><b>Ảnh trong đề</b>` + toks.map(id => {
     const src = S.quiz.imgs[ikey(id)];
-    return `<div class="thumb">${src ? `<img src="${src}" alt="">` : ""}<div style="flex:1"><code>[ảnh:${esc(id)}]</code><div class="${src ? "mu" : "tag-no"}">${src ? Math.round(src.length / 1024) + " KB" : "Chưa có ảnh"}</div></div><button class="g" data-k="${esc(id)}" onclick="pickImg(this.dataset.k)">${src ? "Đổi ảnh" : "Chọn ảnh"}</button></div>`;
+    return `<div class="thumb">${src ? `<img src="${src}" alt="">` : ""}<div style="flex:1"><code>[ảnh:${esc(id)}]</code><div class="${src ? "mu" : "tag-no"}">${src ? Math.round(src.length / 1024) + " KB" : "Chưa có ảnh"}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">${FIGSRC[fk(id)] ? `<button class="g" data-k="${esc(id)}" onclick="recrop(this.dataset.k)">✂ Cắt lại</button>` : ""}<button class="g" data-k="${esc(id)}" onclick="pickImg(this.dataset.k)">${src ? "Đổi ảnh" : "Chọn ảnh"}</button></div></div>`;
   }).join("") + `<div class="mu">Tổng dung lượng ảnh: ${Math.round(imgBytes($("ex").value) / 1024)} KB / ${Math.round(IMG_LIMIT / 1024)} KB</div></div>` : "";
   $("ep").innerHTML = `Đọc được <b>${r.qs.length}</b> câu hợp lệ.` + (r.errors.length ? ` <span class="tag-no">${esc(r.errors.join("; "))}</span>` : "");
   prevPreview(r.qs);
