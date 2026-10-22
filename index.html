@@ -85,6 +85,13 @@ div.op{cursor:default}
 /* câu đúng/sai: hai nút cố định */
 .st{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;align-items:center;padding:8px 0;border-top:1px dashed var(--bd)}
 .st>span:first-child{min-width:0;overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 14px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border:1.5px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);font-weight:600;font-size:.88rem}
+.chip small{opacity:.65;font-weight:500}
+.chip:hover{border-color:var(--pr);transform:translateY(-1px)}
+.chip.on{border-color:var(--pr);background:var(--pr);color:#fff}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tg{padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--pr) 12%,var(--card));color:var(--pr);font-size:.78rem;font-weight:700}
 .st .tf-options{display:grid;grid-template-columns:104px 104px;gap:12px;justify-content:end}
 .st .tf-choice{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:104px;margin:0;padding:7px 13px;border:1.5px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);font-weight:600;cursor:pointer;transition:transform .15s,border-color .15s,background .15s;white-space:nowrap}
 .st .tf-choice:hover{transform:translateY(-1px);border-color:var(--pr)}
@@ -215,6 +222,7 @@ let store, cloud = false;
       sub: (c, cb, er) => fs.collection(c).onSnapshot(s => cb(s.docs.map(d => ({ ...d.data(), id: d.id }))), er || (e => console.error(c, e))),
       get: (c, id) => fs.collection(c).doc(id).get().then(d => d.exists ? { ...d.data(), id: d.id } : null),
       put: (c, o) => fs.collection(c).doc(o.id).set(o),
+      patch: (c, id, p) => fs.collection(c).doc(id).update(p),
       del: (c, id) => fs.collection(c).doc(id).delete()
     };
   } else {
@@ -225,6 +233,7 @@ let store, cloud = false;
       sub: (c, cb) => { (subs[c] = subs[c] || []).push(cb); cb(get(c)); },
       get: (c, id) => Promise.resolve(get(c).find(x => x.id === id) || null),
       put: (c, o) => { set(c, get(c).filter(x => x.id !== o.id).concat(o)); return Promise.resolve(); },
+      patch: (c, id, p) => { set(c, get(c).map(x => x.id === id ? { ...x, ...p } : x)); return Promise.resolve(); },
       del: (c, id) => { set(c, get(c).filter(x => x.id !== id)); return Promise.resolve(); }
     };
   }
@@ -298,7 +307,7 @@ function saNorm(s) { return String(s).toLowerCase().normalize("NFC").replace(/\s
 function saOk(q, a) {
   if (a === undefined) return false;
   const x = saNorm(a); if (!x) return false;
-  return String(q.sa).split(/[;|]/).some(alt => { const y = saNorm(alt); if (!y) return false; if (x === y) return true; const nx = Number(x), ny = Number(y); return isFinite(nx) && isFinite(ny) && nx === ny; });
+  return String(q.sa).split(/[;|]/).some(alt => { const y = saNorm(alt); if (!y) return false; if (x === y) return true; const ny = Number(y); if (!isFinite(ny)) return false; let nx = Number(x); if (!isFinite(nx)) { const u = x.match(/^(-?\d+(?:\.\d+)?)[a-zà-ỹ%°\/²³]+$/i); if (u) nx = Number(u[1]); } return isFinite(nx) && nx === ny; });
 }
 
 function grade(qs, A) {
@@ -405,7 +414,7 @@ function start() {
       if (S.admin && !a.length && !S.seeded) { S.seeded = true; DEFAULT_SUBJECTS.forEach((n, i) => store.put("subjects", { id: uid(), name: n, o: i })); }
       renderSide(); if (S.view === "list") renderMain();
     });
-    store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => (x.time || 0) - (y.time || 0)); renderSide(); if (S.view === "list") renderMain(); });
+    store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => { const ox = x.order != null, oy = y.order != null; if (ox && oy && x.order !== y.order) return x.order - y.order; if (ox !== oy) return ox ? -1 : 1; return (x.time || 0) - (y.time || 0); }); renderSide(); if (S.view === "list") renderMain(); });
     store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); if (S.view === "stats") renderMain(); });
     store.sub("settings", a => {
       S.ai = a.find(x => x.id === "ai") || null;
@@ -721,7 +730,12 @@ const AI_SCAN_MAX = 10;
 (function () { const s = document.createElement("style"); s.textContent = `#cm{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:8px}#cm .box{background:var(--card,#fff);color:inherit;border-radius:12px;max-width:980px;width:100%;max-height:96vh;display:flex;flex-direction:column;padding:10px;gap:8px}#cm .cv{flex:1;min-height:0;overflow:auto;background:#222;border-radius:8px;display:flex;justify-content:center;align-items:flex-start}#cm canvas{touch-action:none;cursor:crosshair;display:block}#cm .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}`; document.head.appendChild(s); })();
 const loadImg = s => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Không đọc được ảnh")); i.src = s; });
 const toNorm = (b, prov, im) => { b = (Array.isArray(b) ? b : []).map(Number); if (b.length !== 4 || !b.every(isFinite)) return null; if (prov === "claude") b = [b[0] / im.height * 1000, b[1] / im.width * 1000, b[2] / im.height * 1000, b[3] / im.width * 1000]; return b[2] > b[0] && b[3] > b[1] ? b : null; };
-function parseJson(raw) { const s = String(raw).replace(/```json|```/g, ""), a = s.indexOf("{"), b = s.lastIndexOf("}"); if (a < 0 || b < a) throw new Error("AI không trả về JSON"); return JSON.parse(s.slice(a, b + 1)); }
+function parseJson(raw) { const s = String(raw).replace(/```json|```/g, ""), a = s.indexOf("{"), b = s.lastIndexOf("}"); if (a < 0 || b < a) throw new Error("AI không trả về JSON"); const j = s.slice(a, b + 1);
+  try { return JSON.parse(j); } catch (e) {
+    // AI hay viết LaTeX (\frac, \ce, \times...) với 1 dấu \ nên JSON hỏng: nhân đôi \ ở chỗ không phải escape hợp lệ
+    const fixed = j.replace(/\\(?:(["\\\/]|u[0-9a-fA-F]{4}|[nrtbf](?!(?:u|eq|e|ot|eg|abla|i|imes|heta|au|o|ext|an|op|riangle|ightarrow|ight|ho|angle|eta|ar|inom|ullet|egin|rac|orall|lat)(?![A-Za-z])))|)/g, (m, ok) => ok ? m : "\\\\");
+    return JSON.parse(fixed);
+  } }
 async function pool(items, n, fn) { const res = []; let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; res[k] = await fn(items[k], k); } })); return res; }
 const FIGSRC = {}, fk = id => (S.quiz && S.quiz.id || "") + ":" + ikey(id); let PAGES = [];
 async function aiBoxes(src) {
@@ -817,7 +831,7 @@ const PG_USER = (w, h, prov) => `Ảnh là một trang đề chụp bằng đi�
 Trả về JSON:
 {"questions":[{"type":"mcq|tf|short","stem":"đề dẫn đầy đủ (kể cả các ý I,II,III,IV hoặc gạch đầu dòng mô tả thí nghiệm)","options":{"A":"...","B":"...","C":"...","D":"..."},"statements":[{"k":"a","t":"...","v":true}],"answer":"B","fig_stem":[[ymin,xmin,ymax,xmax]],"fig_opt":{"A":[ymin,xmin,ymax,xmax]},"start_cut":false,"end_cut":false,"unsure":false}],"note":""}
 Quy tắc:
-- mcq: có options A–D, answer là 1 chữ cái. Đề hỏi “có bao nhiêu phát biểu đúng” với đáp án A.1 B.2 C.3 D.4 vẫn là mcq (các ý I–IV nằm trong stem). tf: đề cho các ý a) b) c) d) mỗi ý đúng/sai riêng (v=true nếu đúng). short: không có phương án, answer là chuỗi.
+- mcq: có options A–D, answer là 1 chữ cái. Đề hỏi “có bao nhiêu phát biểu đúng” với đáp án A.1 B.2 C.3 D.4 vẫn là mcq (các ý I–IV nằm trong stem). tf: đề cho các ý a) b) c) d) mỗi ý đúng/sai riêng (v=true nếu đúng). short: câu tính toán/điền đáp án, KHÔNG có phương án A–D và KHÔNG có ý a)–d); đề thường yêu cầu “nhập”/“làm tròn”/“bao nhiêu…”. Với short BẮT BUỘC tự giải và để answer là CHỈ giá trị cuối (số, dùng dấu chấm thập phân, không đơn vị, làm tròn đúng yêu cầu đề), ví dụ \"1406\"; nếu có nhiều đáp án chấp nhận thì ngăn bằng dấu “;”. Không bịa thêm phương án A–D cho câu short.
 - Mọi câu phải có answer: tự giải để chọn đáp án đúng nhất; dấu khoanh/chữ viết tay chỉ để tham khảo vì có thể sai. Không chắc thì unsure=true.
 - Công thức viết LaTeX trong $...$, hóa học $\\ce{H2SO4}$; bảng số liệu chuyển thành chữ.
 - Hình vẽ/sơ đồ/đồ thị cần nhìn để làm bài: khung ôm sát hình (không lấy chữ của đề) đặt vào fig_stem (hình thuộc phần đề dẫn) hoặc fig_opt (hình nằm trong đáp án/ý). Tọa độ ${prov === "claude" ? `pixel (ảnh rộng ${w}, cao ${h}, gốc trên-trái)` : "chuẩn hóa 0–1000 (gốc trên-trái)"}. Không có hình thì [] hoặc {}.
@@ -897,7 +911,8 @@ async function aiScan(files) {
 /* ===================== BÀI LÀM DỞ + RỜI TAB ===================== */
 const WARN_FROM = 3; // từ lần rời tab thứ mấy thì hiện thông báo
 const SW = { away: false, tm: null };
-const dKey = () => "lh_draft_" + norm(S.user).replace(/\s+/g, "_") + "_" + S.quiz.id;
+const dKeyOf = id => "lh_draft_" + norm(S.user).replace(/\s+/g, "_") + "_" + id;
+const dKey = () => dKeyOf(S.quiz.id);
 const qSig = t => { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ":" + h; };
 function readAnswers() {
   const A = {}; let miss = 0;
@@ -919,10 +934,10 @@ function saveDraft() {
   if (!S.quiz || S.view !== "take") return;
   try { localStorage.setItem(dKey(), JSON.stringify({ sig: qSig(S.quiz.text), qs: S.qs, A: S.A, sw: S.sw || 0, t: Date.now() })); } catch (e) {}
 }
-function loadDraft() {
+function loadDraft(q = S.quiz) {
   try {
-    const d = JSON.parse(localStorage.getItem(dKey()) || "null");
-    if (d && d.sig === qSig(S.quiz.text) && Date.now() - d.t < 12 * 3600 * 1000 && Array.isArray(d.qs) && d.qs.length && d.A && Object.keys(d.A).length) return d;
+    const d = JSON.parse(localStorage.getItem(dKeyOf(q.id)) || "null");
+    if (d && d.sig === qSig(q.text) && Date.now() - d.t < 3 * 24 * 3600 * 1000 && Array.isArray(d.qs) && d.qs.length && d.A && Object.keys(d.A).length) return d;
   } catch (e) {}
   return null;
 }
@@ -990,7 +1005,7 @@ function renderStats() {
 function go(v) {
   S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0);
 }
-function openSub(id) { S.sub = id; go("list"); }
+function openSub(id) { S.sub = id; S.tag = ""; S.q = ""; go("list"); }
 
 function renderSide() {
   $("side").innerHTML = `<div class="card">
@@ -1010,13 +1025,11 @@ function renderMain() {
   } else if (S.view === "list") {
     const sub = S.subjects.find(s => s.id === S.sub);
     if (!sub) return go("home");
-    const qz = S.quizzes.filter(q => q.subject === sub.id);
-    m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">+ Thêm bài</button><button class="g" onclick="renameSub()">Đổi tên môn</button><button class="d" onclick="delSub()">Xóa môn</button></div>` : ""}</div>` +
-      (qz.length ? qz.map(q => {
-        const n = parse(q.text).qs.length;
-        return `<div class="card row sp"><div><b>${esc(q.title)}</b><div class="mu">${n} câu</div></div>
-          <div class="row"><button onclick="take('${q.id}')">Làm bài</button>${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
-      }).join("") : `<div class="card mu">Môn này chưa có bài nào.${S.admin ? " Bấm “Thêm bài” để upload bài đầu tiên." : ""}</div>`);
+    const all = S.quizzes.filter(q => q.subject === sub.id), tags = allTags(sub.id);
+    if (S.tag && !tags.some(x => tagKey(x.t) === tagKey(S.tag))) S.tag = "";
+    const bar = tags.length ? `<div class="chips"><button class="chip ${S.tag ? "" : "on"}" onclick="setTag('')">Tất cả <small>${all.length}</small></button>` + tags.map(x => `<button class="chip ${S.tag && tagKey(S.tag) === tagKey(x.t) ? "on" : ""}" data-t="${esc(x.t)}" onclick="setTag(this.dataset.t)">${esc(x.t)} <small>${x.n}</small></button>`).join("") + `</div>` : "";
+    const search = all.length >= 4 ? `<input type="text" id="qs" placeholder="🔍 Tìm bài theo tên hoặc thẻ…" value="${esc(S.q || "")}" oninput="S.q=this.value;$('qlist').innerHTML=qListHtml()" autocomplete="off" style="margin-bottom:12px">` : "";
+    m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">+ Thêm bài</button><button class="g" onclick="renameSub()">Đổi tên môn</button><button class="d" onclick="delSub()">Xóa môn</button></div>` : ""}</div>` + search + bar + `<div id="qlist">${qListHtml()}</div>`;
   } else if (S.view === "take") {
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.</div></div>` +
       S.qs.map((q, i) => `<div class="card"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
@@ -1046,6 +1059,7 @@ function renderMain() {
     m.innerHTML = `<div class="card"><h2>${q.id ? "Sửa bài" : "Thêm bài mới"}</h2>
       <p><label>Tên bài<input type="text" id="et" value="${esc(q.title)}"></label></p>
       <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
+      <p><label>Thẻ phân loại (cách nhau bằng dấu phẩy)<input type="text" id="etg" list="etgl" value="${esc((q.tags || []).join(", "))}" placeholder="vd: HK1, Bài 1, Ôn tập" autocomplete="off"></label><datalist id="etgl">${allTags().map(x => `<option value="${esc(x.t)}">`).join("")}</datalist>${allTags().length ? `<span class="chips" style="margin:6px 0 0">${allTags().map(x => `<button type="button" class="chip" data-t="${esc(x.t)}" onclick="addTagToInput(this.dataset.t)">+ ${esc(x.t)}</button>`).join("")}</span>` : ""}</p>
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
       <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh &amp; cắt (có ✨ AI gợi ý khung)</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh, bấm nút, chọn ảnh → cửa sổ cắt mở ra: tự kéo khung hoặc bấm “✨ AI gợi ý khung”.</span></p>
       <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI gõ lại câu hỏi theo từng trang, rồi đề xuất khung cắt hình để bạn chỉnh/duyệt.</span></p>
@@ -1109,11 +1123,11 @@ function shuffleQuiz(qs) {
     return { ...q, opts: sh.map((o, i) => ({ ...o, k: String.fromCharCode(65 + i) })), ans: String.fromCharCode(65 + sh.indexOf(correct)) };
   });
 }
-function take(id) {
+function take(id, mode) {
   S.quiz = S.quizzes.find(q => q.id === id);
   if (!S.quiz) return go("list");
   const d = loadDraft();
-  if (d && confirm(`Bạn có bài đang làm dở (đã trả lời ${Object.keys(d.A).length} ý/câu). Bấm OK để làm tiếp, Hủy để làm bài mới.`)) { S.qs = d.qs; S.A = d.A; S.sw = d.sw || 0; }
+  if (d && (mode === "resume" || (mode !== "new" && confirm(`Bạn có bài đang làm dở (đã trả lời ${Object.keys(d.A).length} ý/câu). Bấm OK để làm tiếp, Hủy để làm bài mới.`)))) { S.qs = d.qs; S.A = d.A; S.sw = d.sw || 0; }
   else { clearDraft(); S.qs = shuffleQuiz(parse(S.quiz.text).qs.map((q, i) => ({ ...q, oi: i }))); S.A = {}; S.sw = 0; }
   SW.away = false; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
   S.view = "take"; renderSide(); renderMain(); window.scrollTo(0, 0);
@@ -1141,8 +1155,63 @@ function delSub() {
   S.quizzes.filter(q => q.subject === s.id).forEach(q => store.del("quizzes", q.id));
   store.del("subjects", s.id); S.sub = null; go("home");
 }
+const tagKey = t => String(t).trim().toLowerCase().normalize("NFC").replace(/\s+/g, " ");
+function parseTags(v) {
+  const seen = new Set(), out = [];
+  String(v || "").split(/[,;\n]/).forEach(x => { const t = x.trim().replace(/\s+/g, " ").slice(0, 30), k = tagKey(t); if (t && !seen.has(k)) { seen.add(k); out.push(t); } });
+  return out.slice(0, 8);
+}
+function setTag(t) { S.tag = S.tag && tagKey(S.tag) === tagKey(t) ? "" : t; renderMain(); }
+function addTagToInput(t) { const el = $("etg"); if (!el) return; const cur = parseTags(el.value); if (!cur.some(x => tagKey(x) === tagKey(t))) cur.push(t); el.value = cur.join(", "); }
+function allTags(subjectId) {
+  const m = new Map();
+  S.quizzes.filter(q => !subjectId || q.subject === subjectId).forEach(q => (q.tags || []).forEach(t => { const k = tagKey(t); if (!m.has(k)) m.set(k, { t, n: 0 }); m.get(k).n++; }));
+  return [...m.values()].sort((a, b) => a.t.localeCompare(b.t, "vi", { numeric: true }));
+}
+const NC = {};
+const nQ = q => { const k = q.id + ":" + q.text.length; return NC[k] !== undefined ? NC[k] : (NC[k] = parse(q.text).qs.length); };
+function qListHtml() {
+  const sub = S.subjects.find(x => x.id === S.sub); if (!sub) return "";
+  const all = S.quizzes.filter(q => q.subject === sub.id), k = norm(S.q || "");
+  const qz = all.filter(q => (!S.tag || (q.tags || []).some(t => tagKey(t) === tagKey(S.tag))) && (!k || norm(q.title + " " + (q.tags || []).join(" ")).includes(k)));
+  if (!qz.length) return `<div class="card mu">${S.tag || k ? "Không tìm thấy bài phù hợp." : "Môn này chưa có bài nào." + (S.admin ? " Bấm “Thêm bài” để upload bài đầu tiên." : "")}</div>`;
+  const canMove = S.admin && !S.tag && !k;
+  return qz.map(q => {
+    const d = loadDraft(q), i = all.indexOf(q);
+    const tg = (q.tags || []).length ? `<div class="tagrow">${q.tags.map(t => `<button class="tg" style="border:0;cursor:pointer" data-t="${esc(t)}" onclick="setTag(this.dataset.t)">${esc(t)}</button>`).join("")}</div>` : "";
+    const mv = canMove ? `<button class="g" title="Đưa lên" onclick="moveQuiz('${q.id}',-1)" ${i === 0 ? "disabled" : ""}>▲</button><button class="g" title="Đưa xuống" onclick="moveQuiz('${q.id}',1)" ${i === all.length - 1 ? "disabled" : ""}>▼</button>` : "";
+    const go1 = d ? `<button onclick="take('${q.id}','resume')">Tiếp tục</button><button class="g" onclick="take('${q.id}','new')">Làm lại</button>` : `<button onclick="take('${q.id}')">Làm bài</button>`;
+    return `<div class="card row sp"><div><b>${esc(q.title)}</b><div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)</span>` : ""}</div>${tg}</div>
+      <div class="row">${mv}${go1}${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
+  }).join("");
+}
+function moveQuiz(id, dir) {
+  const all = S.quizzes.filter(q => q.subject === S.sub), i = all.findIndex(q => q.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= all.length) return;
+  const arr = all.slice(); [arr[i], arr[j]] = [arr[j], arr[i]];
+  Promise.all(arr.map((q, n) => q.order === (n + 1) * 10 ? null : store.patch("quizzes", q.id, { order: (n + 1) * 10 }))).catch(e => alert("Không đổi được thứ tự: " + e.message));
+}
+// ---- ảnh: tự nén khi vượt dung lượng 1 tài liệu Firestore (~1 MB gồm cả chữ)
+const imgBudget = text => Math.max(150000, 1000000 - new Blob([String(text)]).size - 20000);
+async function shrinkImgs(imgs, budget) {
+  const keys = Object.keys(imgs);
+  const els = await Promise.all(keys.map(k => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error("Không đọc được một ảnh để nén")); im.src = imgs[k]; })));
+  const before = keys.reduce((n, k) => n + imgs[k].length, 0);
+  for (const [sc, q] of [[1, .72], [.85, .62], [.72, .55], [.6, .5], [.5, .45], [.4, .4]]) {
+    const out = {}; let tot = 0;
+    els.forEach((im, i) => {
+      const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(im.naturalWidth * sc)); c.height = Math.max(1, Math.round(im.naturalHeight * sc));
+      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      let u = c.toDataURL("image/webp", q); if (!u.startsWith("data:image/webp")) u = c.toDataURL("image/jpeg", q);
+      if (u.length > imgs[keys[i]].length) u = imgs[keys[i]];
+      out[keys[i]] = u; tot += u.length;
+    });
+    if (tot <= budget) return { imgs: out, before, after: tot };
+  }
+  return null;
+}
 function editQuiz(id) {
-  S.quiz = id ? { ...S.quizzes.find(q => q.id === id) } : { id: "", subject: S.sub, title: "", text: "" };
+  S.quiz = id ? { ...S.quizzes.find(q => q.id === id) } : { id: "", subject: S.sub, title: "", text: "", tags: [] };
   S.quiz.imgs = { ...(S.quiz.imgs || {}) };
   S.view = "edit"; renderMain(); window.scrollTo(0, 0);
 }
@@ -1151,7 +1220,7 @@ function prevQ() {
   $("eimgs").innerHTML = toks.length ? `<div class="card"><b>Ảnh trong đề</b>` + toks.map(id => {
     const src = S.quiz.imgs[ikey(id)];
     return `<div class="thumb">${src ? `<img src="${src}" alt="">` : ""}<div style="flex:1"><code>[ảnh:${esc(id)}]</code><div class="${src ? "mu" : "tag-no"}">${src ? Math.round(src.length / 1024) + " KB" : "Chưa có ảnh"}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">${FIGSRC[fk(id)] ? `<button class="g" data-k="${esc(id)}" onclick="recrop(this.dataset.k)">✂ Cắt lại</button>` : ""}<button class="g" data-k="${esc(id)}" onclick="pickImg(this.dataset.k)">${src ? "Đổi ảnh" : "Chọn ảnh"}</button></div></div>`;
-  }).join("") + `<div class="mu">Tổng dung lượng ảnh: ${Math.round(imgBytes($("ex").value) / 1024)} KB / ${Math.round(IMG_LIMIT / 1024)} KB</div></div>` : "";
+  }).join("") + `<div class="mu">Tổng dung lượng ảnh: ${Math.round(imgBytes($("ex").value) / 1024)} KB / ${Math.round(imgBudget($("ex").value) / 1024)} KB${imgBytes($("ex").value) > imgBudget($("ex").value) ? ` <span class="tag-no">· vượt mức, khi lưu app sẽ tự nén ảnh</span>` : ""}</div></div>` : "";
   $("ep").innerHTML = `Đọc được <b>${r.qs.length}</b> câu hợp lệ.` + (r.errors.length ? ` <span class="tag-no">${esc(r.errors.join("; "))}</span>` : "");
   prevPreview(r.qs);
 }
@@ -1160,17 +1229,25 @@ function prevPreview(qs) {
   $("epv").innerHTML = qs.slice(0, 3).map((q, i) => `<div style="margin:8px 0"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
     (q.sts.length ? q.sts.map(x => `<div>${x.k}) ${R(x.t)} <small class="mu">= ${x.v ? "Đ" : "S"}</small></div>`).join("") : q.sa !== undefined ? `<div>Đáp án: <b>${esc(q.sa)}</b> <small class="mu">(câu trả lời ngắn)</small></div>` : q.opts.map(o => `<div>${o.k}. ${R(o.t)}${o.k === q.ans ? ` <span class="tag-ok">✓</span>` : ""}</div>`).join("")) + `</div>`).join("") || `<span class="mu">Chưa có câu nào.</span>`;
 }
-function saveQuiz() {
+async function saveQuiz() {
   const title = $("et").value.trim(), text = $("ex").value, r = parse(text);
   if (!title) return alert("Hãy nhập tên bài.");
   if (!r.qs.length) return alert("Chưa có câu hỏi hợp lệ nào. Xem “Cách viết đề” bên dưới.");
   if (r.errors.length && !confirm("Có câu bị lỗi và sẽ bị bỏ qua:\n" + r.errors.join("\n") + "\nVẫn lưu?")) return;
   const miss = tokensOf(text).filter(id => !S.quiz.imgs[ikey(id)]);
   if (miss.length && !confirm("Còn ảnh chưa chọn: " + miss.join(", ") + "\nVẫn lưu?")) return;
-  if (imgBytes(text) > IMG_LIMIT) return alert("Tổng dung lượng ảnh quá lớn (tối đa khoảng 900 KB mỗi bài). Hãy bớt ảnh hoặc dùng link ảnh [ảnh:https://...].");
-  const imgs = {}; tokensOf(text).forEach(id => { const k = ikey(id); if (S.quiz.imgs[k]) imgs[k] = S.quiz.imgs[k]; });
-  S.sub = $("es").value;
-  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, imgs, time: S.quiz.time || Date.now() })
+  let imgs = {}; tokensOf(text).forEach(id => { const k = ikey(id); if (S.quiz.imgs[k]) imgs[k] = S.quiz.imgs[k]; });
+  const budget = imgBudget(text), used = Object.values(imgs).reduce((n, x) => n + x.length, 0);
+  if (used > budget) {
+    let sh = null; try { sh = await shrinkImgs(imgs, budget); } catch (e) { return alert(e.message); }
+    if (!sh) return alert("Ảnh quá nhiều: dù đã nén tối đa vẫn vượt " + Math.round(budget / 1024) + " KB. Hãy bớt ảnh hoặc dùng link ảnh [ảnh:https://...].");
+    imgs = sh.imgs; alert("Ảnh vượt dung lượng nên app đã tự nén: " + Math.round(sh.before / 1024) + " KB → " + Math.round(sh.after / 1024) + " KB.");
+  }
+  const newSub = $("es").value; let order = null;
+  if (S.quiz.id && S.quiz.subject === newSub) order = S.quiz.order != null ? S.quiz.order : null;
+  else { const os = S.quizzes.filter(q => q.subject === newSub && q.order != null).map(q => q.order); if (os.length) order = Math.max(...os) + 10; }
+  S.sub = newSub;
+  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, imgs, tags: parseTags($("etg").value), order, time: S.quiz.time || Date.now() })
     .then(() => go("list")).catch(e => alert("Lưu thất bại: " + e.message));
 }
 function delQuiz(id) { if (confirm("Xóa bài này?")) store.del("quizzes", id); }
