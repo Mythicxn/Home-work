@@ -661,6 +661,7 @@ Quy tắc:
 - Ảnh chụp có thể nghiêng, có ngón tay, có phần trang bên cạnh lấp ló ở mép và có chữ viết tay: bỏ qua các phần đó, chỉ ghép hình với câu có nội dung thật sự trùng với đề đã nhập.
 - "vị trí": ghi chữ "de" nếu hình thuộc phần đề dẫn của câu; nếu hình nằm trong một đáp án/ý thì ghi đúng ký hiệu của đáp án/ý đó như trong đề (A, B, C, D, a, b, c, d, I, II, III, IV).
 - Tọa độ chuẩn hóa 0–1000 so với ảnh, khung ôm sát hình, KHÔNG lấy chữ của đề, không lấy phần khoanh/tô của học sinh nếu tách được.
+- Nếu các đáp án A/B/C/D là hình thì MỖI đáp án là một hình riêng, ghi 4 dòng với vị trí A, B, C, D.
 - Bỏ qua câu không có hình. Bỏ qua câu đã có [ảnh:...] trong đề. Mỗi hình chỉ ghi một lần.
 - Chỉ ghi hình thuộc các câu có trong đề đã nhập. Phần ===GHICHU===: ghi ngắn gọn các hình không chắc chắn hoặc không khớp câu nào.`;
 const OPT_PRE = /^\s*([A-Da-d]|IV|III|II|I)[.)]\s*/;
@@ -802,8 +803,9 @@ async function reviewFigs(list) {
   let acc = false, n = 0;
   for (const f of list) {
     let data = null;
-    if (acc) data = await cropData(f.src, f.b).catch(() => null);
-    else { n++; const r = await openCrop(f.src, { boxes: [f.b], skipAll: true, skipLabel: "Bỏ hình này", title: `Hình ${n}/${list.length} (${f.label}) – chỉnh khung nếu lệch rồi bấm “Cắt & dùng”` });
+    if (acc && f.b) data = await cropData(f.src, f.b).catch(() => null);
+    else if (acc) data = null;
+    else { n++; const r = await openCrop(f.src, { boxes: f.b ? [f.b] : [], ai: true, skipAll: true, skipLabel: "Bỏ hình này", title: `Hình ${n}/${list.length} (${f.label}) – chỉnh khung nếu lệch rồi bấm “Cắt & dùng”` });
       if (r === "ACCEPT") { acc = true; data = await cropData(f.src, f.b).catch(() => null); } else data = r; }
     if (data) { S.quiz.imgs[ikey(f.id)] = data; FIGSRC[fk(f.id)] = { src: f.src, b: f.b }; }
   }
@@ -819,6 +821,7 @@ Quy tắc:
 - Mọi câu phải có answer: tự giải để chọn đáp án đúng nhất; dấu khoanh/chữ viết tay chỉ để tham khảo vì có thể sai. Không chắc thì unsure=true.
 - Công thức viết LaTeX trong $...$, hóa học $\\ce{H2SO4}$; bảng số liệu chuyển thành chữ.
 - Hình vẽ/sơ đồ/đồ thị cần nhìn để làm bài: khung ôm sát hình (không lấy chữ của đề) đặt vào fig_stem (hình thuộc phần đề dẫn) hoặc fig_opt (hình nằm trong đáp án/ý). Tọa độ ${prov === "claude" ? `pixel (ảnh rộng ${w}, cao ${h}, gốc trên-trái)` : "chuẩn hóa 0–1000 (gốc trên-trái)"}. Không có hình thì [] hoặc {}.
+- QUAN TRỌNG: nếu các đáp án A/B/C/D là HÌNH (mạch logic, sơ đồ, đồ thị, hình thí nghiệm...) thì để options là chuỗi rỗng "" và BẮT BUỘC điền khung riêng cho TỪNG đáp án vào fig_opt (đủ A, B, C, D). Hình/bảng nằm ở phần đề dẫn (bảng chân trị, đồ thị...) thì đưa vào fig_stem.
 - Câu bắt đầu từ trang trước (thiếu phần đầu): start_cut=true. Câu bị cắt ở cuối trang (thiếu phần sau): end_cut=true. Vẫn ghi phần nhìn thấy.`;
 function pageFigs(q, pi, im, prov) {
   const out = [], fs = q.fig_stem, list = Array.isArray(fs) ? (typeof fs[0] === "number" ? [fs] : fs) : [];
@@ -835,7 +838,7 @@ function mergePages(rs, prov) {
       last.statements = [...(last.statements || []), ...(q.statements || [])]; if (q.answer) last.answer = q.answer;
       last.type = q.type || last.type; last.unsure = last.unsure || q.unsure; last.end_cut = q.end_cut; last.figs.push(...figs); return;
     }
-    q.figs = figs; out.push(q);
+    q.figs = figs; q.pg = pi; out.push(q);
   }));
   return out;
 }
@@ -845,9 +848,22 @@ function qText(q, num) {
   let t = `Câu ${num}: ${T(q.stem)}`; (q.figs || []).filter(f => f.pos === "de").forEach(f => t += "\n" + alloc(f));
   const sts = q.statements || [], opts = q.options || {}, ok = v => v === true || /^(true|đ|đúng)/i.test(String(v));
   if (sts.length >= 2) sts.forEach(s => { const f = optFig(s.k); t += `\n${s.k}) ${f ? alloc(f) + " " : ""}${T(s.t)} = ${ok(s.v) ? "Đ" : "S"}`; });
-  else if (Object.keys(opts).length >= 2) { Object.keys(opts).forEach(k => { const f = optFig(k); t += `\n${k}. ${f ? alloc(f) + " " : ""}${T(opts[k])}`; }); t += `\nĐáp án: ${T(q.answer).charAt(0).toUpperCase()}`; }
+  else if (Object.keys(opts).length >= 2) { Object.keys(opts).forEach(k => { let f = optFig(k); if (!f && T(opts[k]).length === 0) { f = { p: q.pg, b: null, pos: k }; (q.figs = q.figs || []).push(f); } t += `\n${k}. ${f ? alloc(f) + " " : ""}${T(opts[k])}`; }); t += `\nĐáp án: ${T(q.answer).charAt(0).toUpperCase()}`; }
   else t += `\nĐáp án: ${T(q.answer)}`;
   return t;
+}
+async function fillOptFigs(qs, rs, prov) {
+  const has = (q, k) => (q.figs || []).some(f => f.pos !== "de" && String(f.pos).toUpperCase() === k.toUpperCase());
+  const need = qs.filter(q => !((q.statements || []).length >= 2) && Object.keys(q.options || {}).some(k => String(q.options[k] || "").trim().length === 0 && !has(q, k))), by = {};
+  need.forEach(q => (by[q.pg] ||= []).push(q));
+  await pool(Object.keys(by), 3, async pg => {
+    const r = rs[pg]; if (!r || !r.im) return; const items = by[pg], src = PAGES[pg], im = r.im;
+    const spec = prov === "claude" ? `pixel (ảnh rộng ${im.width}, cao ${im.height}, gốc trên-trái)` : "chuẩn hóa 0–1000 (gốc trên-trái)";
+    try {
+      const raw = await aiCall("Bạn tìm hình đáp án trong ảnh trang đề. Chỉ trả JSON hợp lệ.", `Các câu sau có đáp án A, B, C, D là HÌNH (mạch điện, sơ đồ, đồ thị...). Với mỗi câu, cho khung ôm sát TỪNG hình đáp án (không gồm chữ A/B/C/D), tọa độ ${spec}.\n${items.map((q, n) => `#${n}: ${String(q.stem || "").slice(0, 100)}`).join("\n")}\nTrả JSON {"items":[{"n":0,"fig_opt":{"A":[ymin,xmin,ymax,xmax],"B":[...],"C":[...],"D":[...]}}]}`, null, [src.split(",")[1]], true);
+      (parseJson(raw).items || []).forEach(it => { const q = items[it.n]; if (!q) return; Object.entries(it.fig_opt || {}).forEach(([k, b]) => { b = toNorm(b, prov, im); if (b && !has(q, k)) (q.figs = q.figs || []).push({ p: +pg, b, pos: k }); }); });
+    } catch (e) {}
+  });
 }
 async function aiScan(files) {
   const total = files.length; files = [...files].slice(0, AI_SCAN_MAX); if (!files.length) return;
@@ -867,8 +883,9 @@ async function aiScan(files) {
     if (S.view !== "edit" || S.quiz !== quiz || !$("ex")) return;
     const errs = rs.filter(r => r.err).map(r => r.err), qs = mergePages(rs, prov).filter(q => String(q.answer || "").trim() || (q.statements || []).length >= 2);
     if (!qs.length) throw new Error("AI không đọc được câu hỏi nào. " + errs.join("; "));
+    st.textContent = "Đang tìm hình trong đáp án…"; await fillOptFigs(qs, rs, prov);
     const ta = $("ex"); let num = (ta.value.match(/^\s*C[âa]u\s*\d+\s*[:.)]/gim) || []).length; const unsure = [], list = [];
-    const text = qs.map(q => { num++; const t = qText(q, num); if (q.unsure || q.end_cut) unsure.push(num); (q.figs || []).forEach(f => { if (f.id) list.push({ id: f.id, src: PAGES[f.p], b: f.b, label: "Câu " + num }); }); return t; }).join("\n\n");
+    const text = qs.map(q => { num++; const t = qText(q, num); if (q.unsure || q.end_cut) unsure.push(num); (q.figs || []).forEach(f => { if (f.id) list.push({ id: f.id, src: PAGES[f.p], b: f.b, label: "Câu " + num + (f.pos !== "de" ? " – đáp án " + f.pos : "") + (f.b ? "" : " (AI chưa tìm được khung, hãy tự kéo)") }); }); return t; }).join("\n\n");
     ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + "\n\n" : "") + text; prevQ();
     st.innerHTML = `<span class="tag-ok">Đã thêm ${qs.length} câu.</span> ` + (list.length ? `Đang mở bước kiểm tra ${list.length} hình…` : "");
     if (list.length) { await reviewFigs(list); if (S.quiz === quiz && $("ex")) prevQ(); }
@@ -1030,7 +1047,7 @@ function renderMain() {
       <p><label>Tên bài<input type="text" id="et" value="${esc(q.title)}"></label></p>
       <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
-      <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh tại vị trí con trỏ</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh (trong câu hỏi hoặc đáp án) rồi bấm nút.</span></p>
+      <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh &amp; cắt (có ✨ AI gợi ý khung)</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh, bấm nút, chọn ảnh → cửa sổ cắt mở ra: tự kéo khung hoặc bấm “✨ AI gợi ý khung”.</span></p>
       <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI gõ lại câu hỏi theo từng trang, rồi đề xuất khung cắt hình để bạn chỉnh/duyệt.</span></p>
       <p class="row"><button type="button" class="g ai-btn" onclick="$('efi').click()">${AI_ICON}<span>Chỉ cắt hình cho đề đã nhập</span></button><input type="file" id="efi" accept="image/*" multiple hidden><span id="efs" class="mu">Nhập chữ đề trước, rồi chọn ảnh chụp: AI chỉ tìm hình và chèn vào đúng câu, không thêm hay sửa câu hỏi.</span></p>
       <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
