@@ -252,10 +252,20 @@ function parse(text) {
     if (!l) return;
     if ((m = l.match(/^C[âa]u\s*\d*\s*[:.)]\s*(.*)$/i))) { cur = { q: m[1], opts: [], sts: [], ans: null }; qs.push(cur); }
     else if (!cur) return;
+    // ý đúng/sai: a) b) c) d), A. B. C. D. hoặc I. II. III. IV. kết thúc bằng "= Đ" / "= S" (đặt TRƯỚC nhánh phương án A-D)
+    else if ((m = l.match(/^([a-d])[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S|s)$/)) || (m = l.match(/^([A-D]|IV|III|II|I)[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S)$/))) cur.sts.push({ k: m[1], t: m[2], v: m[3].toUpperCase() === "Đ" });
     else if ((m = l.match(/^([A-D])[.)]\s*(.*)$/))) cur.opts.push({ k: m[1], t: m[2] });
-    else if ((m = l.match(/^([a-d])[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S|s)$/))) cur.sts.push({ k: m[1], t: m[2], v: m[3].toUpperCase() === "Đ" });
     else if ((m = l.match(/^(?:Đáp án|Dap an|ĐA|DA)\s*[:.]\s*([A-Da-d])/i))) cur.ans = m[1].toUpperCase();
     else cur.q += " " + l;
+  });
+  // chuẩn hóa
+  qs.forEach(q => {
+    // câu A-D có "Đáp án: X" nhưng mỗi dòng dính "= Đ/S": coi là 4 phương án trắc nghiệm
+    if (q.ans && q.sts.length && !q.opts.length && q.sts.every(s => /^[A-D]$/.test(s.k)) && q.sts.some(s => s.k === q.ans)) {
+      q.opts = q.sts.map(s => ({ k: s.k, t: s.t })); q.sts = [];
+    }
+    // câu đúng/sai: đổi nhãn (I, II, A, B...) về a, b, c, d để hiển thị và chấm điểm
+    q.sts.forEach((s, i) => { s.k = String.fromCharCode(97 + i); });
   });
   const ok = [];
   qs.forEach((q, i) => {
