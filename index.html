@@ -12,6 +12,7 @@
 :root{--bg:#eceef6;--card:#fff;--tx:#1b2040;--mu:#666c8f;--pr:#3f43a8;--moon:#f0c45a;--ok:#17874b;--okb:#dff3e7;--no:#c93030;--nob:#fce6e6;--bd:#d9dcec}
 @media(prefers-color-scheme:dark){:root{--bg:#12142a;--card:#1c1f3d;--tx:#e8e9fb;--mu:#9a9ec6;--pr:#8e92ff;--ok:#4cd387;--okb:#15382a;--no:#ff7b7b;--nob:#44202a;--bd:#30335a}}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;font:16px/1.55 "Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--tx)}
 button,input,select,textarea{font:inherit;color:inherit}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 22px;background:#1b1f4b;color:#fff}
@@ -687,6 +688,7 @@ function renderSide() {
 
 function renderMain() {
   const m = $("main"); m.onchange = null;
+  $("board").hidden = S.view !== "home";
   if (S.view === "home") {
     m.innerHTML = `<div class="card"><h2>Chào ${esc(S.user)}</h2>
       <p>Trang web thuộc quyền sở hữu của lớp 11B02 do Lunar quản lý. Quyền sử dụng chỉ thuộc về lớp 11B02 và các lớp được cho phép. Hãy liên hệ lớp 11B02 nếu muốn được sử dụng.</p>
@@ -712,7 +714,7 @@ function renderMain() {
   } else if (S.view === "review") {
     const { score, right } = grade(S.qs, S.A);
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="score">${score}/10</div>
-      <div class="mu">Đúng hoàn toàn ${right}/${S.qs.length} câu. ${S.admin ? "(Quản trị: kết quả không được lưu vào bảng.)" : "Kết quả đã lưu vào bảng bên dưới."}</div>
+      <div class="mu">Đúng hoàn toàn ${right}/${S.qs.length} câu. ${S.admin ? "(Quản trị: kết quả không được lưu vào bảng.)" : "Kết quả đã được lưu (xem ở mục Thông tin)."}</div>
       <p><label><input type="checkbox" ${S.onlyWrong ? "checked" : ""} onchange="S.onlyWrong=this.checked;renderMain()"> Chỉ hiện câu sai</label></p>
       <div class="row"><button onclick="take('${S.quiz.id}')">Làm lại</button><button class="g" onclick="go('list')">Về danh sách bài</button></div>${aiBlock()}</div>` +
       S.qs.map((q, i) => reviewQ(q, i)).join("");
