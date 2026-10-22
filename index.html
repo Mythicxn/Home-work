@@ -424,7 +424,7 @@ async function aiCallSingle(system, user, o) {
     d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
     return d.content.map(c => c.text || "").join("");
   }
-  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }, ...(o.imgs || []).map(b => ({ inlineData: { mimeType: "image/jpeg", data: b } }))] }], generationConfig: { temperature: o.imgs ? .2 : .4, ...(o.imgs ? { maxOutputTokens: 8192 } : {}) } }) });
+  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }, ...(o.imgs || []).map(b => ({ inlineData: { mimeType: "image/jpeg", data: b } }))] }], generationConfig: { temperature: o.imgs ? .2 : .4, ...(o.imgs ? { maxOutputTokens: 32768 } : {}) } }) });
   d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
   const c = (d.candidates || [])[0] && d.candidates[0].content;
   if (!c || !c.parts) throw new Error("AI không trả về nội dung.");
@@ -553,14 +553,15 @@ function cropData(src, b) {
     im.onerror = () => rej(new Error("img")); im.src = src;
   });
 }
+const AI_SCAN_MAX = 10;
 async function aiScan(files) {
-  files = [...files].slice(0, 4); if (!files.length) return;
+  const total = files.length; files = [...files].slice(0, AI_SCAN_MAX); if (!files.length) return;
   const st = $("eas"), quiz = S.quiz;
   if (!aiReady()) { st.innerHTML = `<span class="tag-no">AI chưa bật. Vào “⚙ Cài đặt AI” nhập key trước.</span>`; return; }
   try {
     st.textContent = "Đang đọc ảnh…";
-    const imgs = []; for (const f of files) imgs.push(await compress(f, 1600, 0.85));
-    st.textContent = "AI đang chuyển ảnh thành câu hỏi (có thể mất 20–60 giây)…";
+    const imgs = []; for (const f of files) imgs.push(await compress(f, files.length > 4 ? 1400 : 1600, 0.85));
+    st.textContent = "AI đang chuyển " + files.length + " ảnh thành câu hỏi (" + (files.length > 4 ? "nhiều ảnh nên có thể mất 1–3 phút, đừng đóng trang" : "có thể mất 20–60 giây") + ")…";
     const raw = await aiCall(SCAN_SYS, SCAN_USER(imgs.length), null, imgs.map(x => x.split(",")[1]));
     if (S.view !== "edit" || S.quiz !== quiz || !$("ex")) return;
     const mDe = raw.match(/===DE===([\s\S]*?)(?:===ANH===|$)/), mAnh = raw.match(/===ANH===([\s\S]*?)(?:===GHICHU===|$)/), mNote = raw.match(/===GHICHU===([\s\S]*)$/);
@@ -583,7 +584,7 @@ async function aiScan(files) {
     const note = mNote && mNote[1].trim();
     st.innerHTML = `<span class="tag-ok">Đã thêm ${parse(text).qs.length} câu.</span> ` +
       (tot ? `Đã tự cắt ${okc}/${tot} hình${okc < tot ? ", hình còn thiếu hãy bấm “Chọn ảnh” ở mục Ảnh trong đề" : ""}. ` : "") +
-      `Hãy kiểm tra lại nội dung và đáp án trước khi lưu.` + (note ? `<br>Ghi chú của AI: ${esc(note)}` : "");
+      `Hãy kiểm tra lại nội dung và đáp án trước khi lưu.` + (total > AI_SCAN_MAX ? ` Chỉ xử lý ${AI_SCAN_MAX} ảnh đầu, hãy chạy lại cho các ảnh còn lại.` : "") + (note ? `<br>Ghi chú của AI: ${esc(note)}` : "");
   } catch (e) { st.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
 }
 
@@ -730,7 +731,7 @@ function renderMain() {
       <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
       <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh tại vị trí con trỏ</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh (trong câu hỏi hoặc đáp án) rồi bấm nút.</span></p>
-      <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–4 ảnh chụp trang đề; AI sẽ gõ lại câu hỏi và tự cắt hình minh họa.</span></p>
+      <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI sẽ gõ lại câu hỏi và tự cắt hình minh họa.</span></p>
       <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
       <p id="ep" class="mu"></p>
       <details id="epvd" ontoggle="prevQ()" class="card"><summary><b>Xem thử 3 câu đầu</b> (hiển thị công thức và ảnh)</summary><div id="epv"></div></details>
