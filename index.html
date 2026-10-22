@@ -22,6 +22,7 @@ header h1{margin:0;font-size:1.35rem;font-weight:700;display:flex;align-items:ce
 #who{font-size:.9rem;display:flex;gap:10px;align-items:center}
 button{background:var(--pr);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--moon);outline-offset:2px}
+.ai-btn{display:inline-flex;align-items:center;gap:8px}
 button.g{background:transparent;color:var(--pr);border:1px solid var(--pr)}
 button.d{background:var(--no);color:#fff}
 header button{background:transparent;border:1px solid #fff8;color:#fff}
@@ -43,20 +44,22 @@ h2,h3{margin:.2em 0 .5em}
 .mu{color:var(--mu);font-size:.9rem}
 .op{display:block;padding:7px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer}
 .op:hover{background:var(--bg)}
-.st{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:6px 0;border-top:1px dashed var(--bd)}
+.st{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;align-items:center;padding:6px 0;border-top:1px dashed var(--bd)}
+.st>span:first-child{min-width:0;overflow-wrap:anywhere}
 .st label{margin-left:10px;white-space:nowrap}
 .q.ok{border-left:6px solid var(--ok)}
 .q.bad{border-left:6px solid var(--no)}
 .op.right{background:linear-gradient(135deg,var(--okb),color-mix(in srgb,var(--okb) 72%,var(--card)));border:1px solid var(--ok);box-shadow:inset 4px 0 0 var(--ok)}
 .op.wrong{background:linear-gradient(135deg,var(--nob),color-mix(in srgb,var(--nob) 72%,var(--card)));border:1px solid var(--no);box-shadow:inset 4px 0 0 var(--no)}
-.st .tf-options{display:inline-flex;gap:6px;flex-wrap:wrap}
+.st .tf-options{display:grid;grid-template-columns:104px 104px;gap:12px;justify-content:end}
 .st .tf-choice{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);font-weight:600;cursor:pointer;transition:transform .15s,border-color .15s,background .15s;white-space:nowrap}
+.st .tf-choice{width:104px;margin:0;justify-content:center;white-space:nowrap}
 .st .tf-choice:hover{transform:translateY(-1px);border-color:var(--pr)}
 .st .tf-choice input{accent-color:var(--pr);margin:0;width:16px;height:16px}
 .st .tf-choice:has(input:checked){border-color:var(--pr);background:color-mix(in srgb,var(--pr) 12%,var(--card));box-shadow:0 0 0 2px color-mix(in srgb,var(--pr) 12%,transparent)}
 .st .tf-choice.yes:has(input:checked){border-color:var(--ok);background:var(--okb);color:var(--ok)}
 .st .tf-choice.no:has(input:checked){border-color:var(--no);background:var(--nob);color:var(--no)}
-@media(max-width:520px){.st{gap:8px;align-items:flex-start}.st .tf-options{width:100%}.st .tf-choice{flex:1;justify-content:center}}
+@media(max-width:560px){.st{grid-template-columns:1fr;gap:8px}.st .tf-options{grid-template-columns:1fr 1fr;justify-content:stretch}.st .tf-choice{width:auto}}
 .tag-ok{color:var(--ok);font-weight:700}.tag-no{color:var(--no);font-weight:700}
 .score{font-size:2rem;font-weight:700}
 .tw{overflow-x:auto}
@@ -71,7 +74,7 @@ td:nth-child(3){white-space:normal}
 .thumb img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--bd);background:#fff}
 pre{background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto;font-size:.85rem}
 .ai{background:var(--bg);border-left:4px solid var(--pr);border-radius:8px;padding:10px 14px;margin:10px 0;line-height:1.7}
-@media(max-width:720px){#app{grid-template-columns:1fr}.st{flex-direction:column;align-items:flex-start}}
+@media(max-width:720px){#app{grid-template-columns:1fr}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -370,11 +373,12 @@ function aiQText(q, i) {
   else { q.opts.forEach(o => t += `${o.k}. ${plain(o.t)}\n`); t += `Đáp án đề: ${q.ans} | HS chọn: ${A[i] || "bỏ trống"}\n`; }
   return t;
 }
-async function aiCall(system, user, o) {
+async function aiCall(system, user, o, imgs) {
   if (!o) {
     const sec = await store.get("secrets", "ai");
     o = { provider: S.ai.provider, model: S.ai.model, fallbackModel: S.ai.fallbackModel, key: sec && sec.key };
   }
+  if (imgs) o = { ...o, imgs };
   const primary = o.model || AI_DEF[o.provider].model;
   const fallback = String(o.fallbackModel || (S.ai && S.ai.provider === o.provider ? S.ai.fallbackModel : "") || AI_DEF[o.provider].fallback || "").trim();
   try {
@@ -395,16 +399,16 @@ async function aiCallSingle(system, user, o) {
   const model = o.model || AI_DEF[o.provider].model, J = { "Content-Type": "application/json" };
   let r, d;
   if (o.provider === "openai") {
-    r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { ...J, Authorization: "Bearer " + o.key }, body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }] }) });
+    r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { ...J, Authorization: "Bearer " + o.key }, body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: o.imgs ? [{ type: "text", text: user }, ...o.imgs.map(b => ({ type: "image_url", image_url: { url: "data:image/jpeg;base64," + b } }))] : user }] }) });
     d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
     return d.choices[0].message.content;
   }
   if (o.provider === "claude") {
-    r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { ...J, "x-api-key": o.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: 2000, system, messages: [{ role: "user", content: user }] }) });
+    r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { ...J, "x-api-key": o.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: o.imgs ? 8000 : 2000, system, messages: [{ role: "user", content: o.imgs ? [...o.imgs.map(b => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: b } })), { type: "text", text: user }] : user }] }) });
     d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
     return d.content.map(c => c.text || "").join("");
   }
-  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature: .4 } }) });
+  r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: "POST", headers: { ...J, "x-goog-api-key": o.key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }, ...(o.imgs || []).map(b => ({ inlineData: { mimeType: "image/jpeg", data: b } }))] }], generationConfig: { temperature: o.imgs ? .2 : .4, ...(o.imgs ? { maxOutputTokens: 8192 } : {}) } }) });
   d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
   const c = (d.candidates || [])[0] && d.candidates[0].content;
   if (!c || !c.parts) throw new Error("AI không trả về nội dung.");
@@ -428,13 +432,13 @@ function aiAll() {
 }
 function aiOne(i) { aiRun("q" + i, () => `Học sinh làm bài "${S.quiz.title}".\n\n${aiQText(S.qs[i], i)}\nHãy giải thích ngắn gọn vì sao đáp án đề đúng, vì sao lựa chọn của học sinh chưa đúng, kèm một mẹo nhớ.`); }
 function aiOut(key) {
-  if (S.aiBusy[key]) return `<p class="mu">🤖 AI đang phân tích…</p>`;
+  if (S.aiBusy[key]) return `<p class="mu">AI đang phân tích…</p>`;
   const c = S.aiCache[key]; if (!c) return "";
   return c.e ? `<p class="tag-no">Lỗi AI: ${esc(c.e)}</p>` : `<div class="ai">${aiMd(c.t)}</div>`;
 }
-function aiBtnQ(i) { return `<div style="margin-top:8px"><button class="g" onclick="aiOne(${i})" ${S.aiBusy["q" + i] ? "disabled" : ""}>🤖 Giải thích câu này</button>${aiOut("q" + i)}</div>`; }
+function aiBtnQ(i) { return `<div style="margin-top:8px"><button class="g" onclick="aiOne(${i})" ${S.aiBusy["q" + i] ? "disabled" : ""}>Giải thích</button>${aiOut("q" + i)}</div>`; }
 function aiBlock() {
-  if (aiReady()) return `<div style="margin-top:12px"><button onclick="aiAll()" ${S.aiBusy.all ? "disabled" : ""}>🤖 Phân tích bài làm bằng AI</button>${aiOut("all")}</div>`;
+  if (aiReady()) return `<div style="margin-top:12px"><button class="ai-btn" onclick="aiAll()" ${S.aiBusy.all ? "disabled" : ""}>${AI_ICON}<span>Phân tích bài làm</span></button>${aiOut("all")}</div>`;
   return S.admin ? `<p class="mu">AI chưa bật. Vào “⚙ Cài đặt AI” để nhập key.</p>` : "";
 }
 function aiStatus() {
@@ -483,6 +487,88 @@ async function aiDel() {
     const doc = { id: "ai", provider: (S.ai || {}).provider || "gemini", model: (S.ai || {}).model || "", enabled: false, hasKey: false, last4: "", time: Date.now() };
     await store.del("secrets", "ai"); await store.put("settings", doc); S.ai = doc; renderMain();
   } catch (e) { $("amsg").innerHTML = `<span class="tag-no">Xóa thất bại: ${esc(e.message || e)}</span>`; }
+}
+
+const AI_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><circle cx="12" cy="12" r="11.5" fill="#4b7bec" stroke="#fff" stroke-opacity=".7"/><path d="M12 4.5c.5 3.6 2.9 6 6.5 6.5-3.6.5-6 2.9-6.5 6.5-.5-3.6-2.9-6-6.5-6.5 3.6-.5 6-2.9 6.5-6.5z" fill="#fff"/></svg>`;
+
+/* ===================== AI CHUYỂN ẢNH ĐỀ → CÂU HỎI ===================== */
+const SCAN_SYS = "Bạn chuyển ảnh chụp đề trắc nghiệm tiếng Việt thành văn bản theo đúng định dạng quy định. Chỉ trả về đúng định dạng, không giải thích thêm.";
+const SCAN_USER = n => `Có ${n} ảnh chụp đề (đánh số 1..${n} theo thứ tự gửi). Hãy gõ lại TẤT CẢ câu hỏi nhìn thấy đầy đủ, giữ nguyên nội dung, theo định dạng:
+
+===DE===
+Câu 1: nội dung câu hỏi
+A. ...
+B. ...
+C. ...
+D. ...
+Đáp án: B
+
+Câu 2: Xét các phát biểu sau...
+a) ... = Đ
+b) ... = S
+c) ... = Đ
+d) ... = S
+===ANH===
+h1 | 1 | ymin,xmin,ymax,xmax
+===GHICHU===
+...
+
+Quy tắc:
+- Mỗi câu bắt đầu bằng "Câu N:". Câu 4 phương án phải có dòng "Đáp án: X". Câu đúng/sai có các ý a) b) c) d), mỗi ý kết thúc bằng " = Đ" hoặc " = S".
+- Mọi câu phải có đáp án: hãy tự giải để chọn đáp án đúng nhất (dấu khoanh/tô trong ảnh chỉ để tham khảo, có thể là bài làm sai của học sinh). Câu nào không chắc chắn thì ghi số câu vào GHICHU.
+- Phần đề dẫn nhiều dòng (gạch đầu dòng, mô tả thí nghiệm...) viết liền ngay dưới "Câu N:", không chèn dòng trống.
+- Công thức, ký hiệu dùng Unicode (H₂O, CO₂, x², √, °C). Bảng số liệu chuyển thành chữ.
+- Chỗ có hình vẽ, sơ đồ, đồ thị cần để làm bài: đặt [ảnh:h1], [ảnh:h2]... đúng vị trí trong câu hỏi hoặc trong phương án (ví dụ "A. [ảnh:h3]"). Ở phần ===ANH=== mỗi hình một dòng: id | số thứ tự ảnh | ymin,xmin,ymax,xmax (tọa độ chuẩn hóa 0–1000 so với ảnh, ôm sát hình, không lấy chữ của đề).
+- Bỏ qua câu bị cắt dở ở mép trang, số trang, tiêu đề đầu trang.
+- Không có hình thì để trống phần ===ANH===. GHICHU: ghi ngắn gọn các câu không chắc chắn hoặc chữ khó đọc.`;
+function cropData(src, b) {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => {
+      let [y0, x0, y1, x1] = b.map(v => Math.max(0, Math.min(1000, v))); const pad = 12;
+      y0 = Math.max(0, y0 - pad); x0 = Math.max(0, x0 - pad); y1 = Math.min(1000, y1 + pad); x1 = Math.min(1000, x1 + pad);
+      const sx = x0 / 1000 * im.width, sy = y0 / 1000 * im.height, sw = (x1 - x0) / 1000 * im.width, sh = (y1 - y0) / 1000 * im.height;
+      if (sw < 8 || sh < 8) return rej(new Error("box"));
+      const k = Math.min(1, 800 / Math.max(sw, sh)), c = document.createElement("canvas");
+      c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, sx, sy, sw, sh, 0, 0, c.width, c.height);
+      res(c.toDataURL("image/jpeg", 0.72));
+    };
+    im.onerror = () => rej(new Error("img")); im.src = src;
+  });
+}
+async function aiScan(files) {
+  files = [...files].slice(0, 4); if (!files.length) return;
+  const st = $("eas"), quiz = S.quiz;
+  if (!aiReady()) { st.innerHTML = `<span class="tag-no">AI chưa bật. Vào “⚙ Cài đặt AI” nhập key trước.</span>`; return; }
+  try {
+    st.textContent = "Đang đọc ảnh…";
+    const imgs = []; for (const f of files) imgs.push(await compress(f, 1600, 0.85));
+    st.textContent = "AI đang chuyển ảnh thành câu hỏi (có thể mất 20–60 giây)…";
+    const raw = await aiCall(SCAN_SYS, SCAN_USER(imgs.length), null, imgs.map(x => x.split(",")[1]));
+    if (S.view !== "edit" || S.quiz !== quiz || !$("ex")) return;
+    const mDe = raw.match(/===DE===([\s\S]*?)(?:===ANH===|$)/), mAnh = raw.match(/===ANH===([\s\S]*?)(?:===GHICHU===|$)/), mNote = raw.match(/===GHICHU===([\s\S]*)$/);
+    if (!mDe || !mDe[1].trim()) throw new Error("AI không trả về đúng định dạng. Hãy thử lại hoặc chụp rõ hơn.");
+    let text = mDe[1].trim();
+    const figs = {};
+    ((mAnh && mAnh[1]) || "").split("\n").forEach(l => {
+      const m = l.match(/^\s*(\S+)\s*\|\s*(\d+)\s*\|\s*([\d.\s,]+)/);
+      if (m) { const b = m[3].split(",").map(Number); if (b.length === 4 && b.every(isFinite) && b[2] > b[0] && b[3] > b[1]) figs[m[1].trim()] = { n: +m[2], b }; }
+    });
+    const map = {}; let okc = 0, tot = 0;
+    for (const tok of tokensOf(text)) { const nid = newImgId(); S.quiz.imgs[ikey(nid)] = ""; map[tok] = nid; }
+    for (const tok of Object.keys(map)) {
+      tot++; const f = figs[tok];
+      if (f && imgs[f.n - 1]) { try { S.quiz.imgs[ikey(map[tok])] = await cropData(imgs[f.n - 1], f.b); okc++; } catch (e) {} }
+    }
+    text = text.replace(IMG_RE, (m, id) => map[id.trim()] ? `[ảnh:${map[id.trim()]}]` : m);
+    const ta = $("ex"); ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + "\n\n" : "") + text;
+    prevQ();
+    const note = mNote && mNote[1].trim();
+    st.innerHTML = `<span class="tag-ok">Đã thêm ${parse(text).qs.length} câu.</span> ` +
+      (tot ? `Đã tự cắt ${okc}/${tot} hình${okc < tot ? ", hình còn thiếu hãy bấm “Chọn ảnh” ở mục Ảnh trong đề" : ""}. ` : "") +
+      `Hãy kiểm tra lại nội dung và đáp án trước khi lưu.` + (note ? `<br>Ghi chú của AI: ${esc(note)}` : "");
+  } catch (e) { st.innerHTML = `<span class="tag-no">Lỗi: ${esc(e.message || e)}</span>`; }
 }
 
 /* ===================== GIAO DIỆN ===================== */
@@ -540,6 +626,7 @@ function renderMain() {
       <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
       <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh tại vị trí con trỏ</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh (trong câu hỏi hoặc đáp án) rồi bấm nút.</span></p>
+      <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–4 ảnh chụp trang đề; AI sẽ gõ lại câu hỏi và tự cắt hình minh họa.</span></p>
       <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
       <p id="ep" class="mu"></p>
       <div id="eimgs"></div>
@@ -550,6 +637,7 @@ function renderMain() {
       for (const f of e.target.files) { const id = newImgId(); await addImg(id, f); insertAtCursor(`[ảnh:${id}]`); }
       e.target.value = ""; prevQ();
     };
+    $("eai").onchange = e => { const f = [...e.target.files]; e.target.value = ""; aiScan(f); };
     prevQ();
   }
 }
@@ -581,10 +669,21 @@ function renderBoard() {
 }
 
 /* ===================== LÀM BÀI ===================== */
+function shuf(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+// Đáp án kiểu "Cả A và B", "Tất cả đều đúng"... phụ thuộc vị trí nên không xáo phương án của câu đó.
+const KEEP_RE = /tất cả|cả\s+[a-d]\b|\b[a-d]\s*(và|,)\s*[a-d]\b|đều\s+(đúng|sai)|không\s+có\s+đáp\s+án|không\s+đáp\s+án/i;
+function shuffleQuiz(qs) {
+  return shuf(qs).map(q => {
+    if (q.sts.length) return { ...q, sts: shuf(q.sts).map((s, i) => ({ ...s, k: String.fromCharCode(97 + i) })) };
+    if (q.opts.some(o => KEEP_RE.test(o.t))) return q;
+    const correct = q.opts.find(o => o.k === q.ans), sh = shuf(q.opts);
+    return { ...q, opts: sh.map((o, i) => ({ ...o, k: String.fromCharCode(65 + i) })), ans: String.fromCharCode(65 + sh.indexOf(correct)) };
+  });
+}
 function take(id) {
   S.quiz = S.quizzes.find(q => q.id === id);
   if (!S.quiz) return go("list");
-  S.qs = parse(S.quiz.text).qs; S.A = {}; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
+  S.qs = shuffleQuiz(parse(S.quiz.text).qs); S.A = {}; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
   S.view = "take"; renderSide(); renderMain(); window.scrollTo(0, 0);
   const sb = S.subjects.find(x => x.id === S.quiz.subject);
   liveSend({ state: "doing", quiz: S.quiz.title, subject: sb ? sb.name : null, since: Date.now() });
