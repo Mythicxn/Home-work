@@ -511,9 +511,13 @@ const AI_DEF = {
   openai: { name: "OpenAI", model: "gpt-4o-mini", fallback: "gpt-4.1-mini" },
   claude: { name: "Anthropic Claude", model: "claude-haiku-5-5", fallback: "claude-3-5-haiku-latest" }
 };
-const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng. Viết công thức bằng ký hiệu thường (x², √, H₂O), không dùng LaTeX.";
+const AI_SYS = "Bạn là giáo viên hỗ trợ học sinh lớp 11 ở Việt Nam. Trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu, thân thiện. Coi 'Đáp án đề' là đáp án chính thức; nếu thấy đáp án đề có vẻ sai thì nói rõ nhưng đừng khẳng định chắc chắn. Không bịa; nếu câu có hình minh họa mà bạn không xem được thì nói là chưa đủ thông tin cho phần đó. Dùng **in đậm** cho ý chính, không dùng bảng. Công thức và ký hiệu toán/logic: viết bằng LaTeX trong dấu $...$ (ví dụ $x^2$, $A \\lor B$, $\\overline{C}$, $\\oplus$); hóa học dùng $\\ce{H2SO4}$. Không dùng \\( \\) hay \\[ \\].";
 const aiReady = () => !!(S.ai && S.ai.enabled && S.ai.hasKey && AI_DEF[S.ai.provider]);
-const aiMd = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ").replace(/\n/g, "<br>");
+const aiMd = t => {
+  const maths = [];
+  t = String(t).replace(MATH_RE, (m, a, b) => { maths.push(mathHtml(a !== undefined ? a : b, a !== undefined)); return "\u0001" + (maths.length - 1) + "\u0002"; });
+  return esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ").replace(/\n/g, "<br>").replace(/\u0001(\d+)\u0002/g, (_, i) => maths[+i]);
+};
 const plain = t => String(t).replace(IMG_RE, "[hình minh họa - AI không xem được]");
 const qOk = (q, i) => q.sts.length ? q.sts.every(s => S.A[i + s.k] === s.v) : q.sa !== undefined ? saOk(q, S.A[i]) : S.A[i] === q.ans;
 function aiQText(q, i) {
