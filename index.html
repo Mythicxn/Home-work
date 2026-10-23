@@ -88,9 +88,10 @@ div.op{cursor:default}
 /* câu đúng/sai: hai nút cố định */
 .st{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;align-items:center;padding:8px 0;border-top:1px dashed var(--bd)}
 .st>span:first-child{min-width:0;overflow-wrap:anywhere}
-#ntov,#wnov{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,7,40,.62)}
+#ntov,#wnov,#pkov{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,7,40,.62)}
 #wnov{z-index:1001}
-#ntov .card,#wnov .card{max-width:480px;width:100%;margin:0;box-shadow:0 24px 60px rgba(5,7,40,.5)}
+#pkov .card{max-height:92vh;overflow:auto}
+#ntov .card,#wnov .card,#pkov .card{max-width:480px;width:100%;margin:0;box-shadow:0 24px 60px rgba(5,7,40,.5)}
 #wnov .card.wide{max-width:640px}
 #ntov .nt-body,#wnov .nt-body{white-space:pre-wrap;max-height:50vh;overflow:auto;overflow-wrap:anywhere}
 .pl tr.flag td{background:rgba(224,60,60,.13)}
@@ -143,6 +144,9 @@ pre{background:var(--bg);padding:12px;border-radius:12px;overflow-x:auto;font-si
 .mphase.full{box-shadow:0 0 0 2px var(--moon),0 0 16px 2px rgba(244,191,79,.6)}
 .dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 14px;background:var(--night);color:#fff;border-radius:999px;box-shadow:0 10px 30px rgba(8,10,40,.4);font:600 .95rem var(--hf);white-space:nowrap}
 .dock button{background:var(--moon);color:#171a4a}
+.dock .tm{font-variant-numeric:tabular-nums;color:var(--moon);min-width:78px}
+.dock .tm.low{color:#ff8088;animation:tmb 1s infinite}
+@keyframes tmb{50%{opacity:.55}}
 #main:has(.dock){padding-bottom:84px}
 
 /* thông báo */
@@ -1016,12 +1020,12 @@ function applyAnswers() {
 }
 function saveDraft() {
   if (!S.quiz || S.view !== "take") return;
-  try { localStorage.setItem(dKey(), JSON.stringify({ sig: qSig(S.quiz.text), qs: S.qs, A: S.A, sw: S.sw || 0, t: Date.now() })); } catch (e) {}
+  try { localStorage.setItem(dKey(), JSON.stringify({ sig: qSig(S.quiz.text), qs: S.qs, A: S.A, sw: S.sw || 0, mode: S.mode || "practice", lim: S.lim || 0, dl: S.deadline || 0, t: Date.now() })); } catch (e) {}
 }
 function loadDraft(q = S.quiz) {
   try {
     const d = JSON.parse(localStorage.getItem(dKeyOf(q.id)) || "null");
-    if (d && d.sig === qSig(q.text) && Date.now() - d.t < 3 * 24 * 3600 * 1000 && Array.isArray(d.qs) && d.qs.length && d.A && Object.keys(d.A).length) return d;
+    if (d && d.sig === qSig(q.text) && Date.now() - d.t < 3 * 24 * 3600 * 1000 && Array.isArray(d.qs) && d.qs.length && d.A && (Object.keys(d.A).length || d.dl)) return d;
   } catch (e) {}
   return null;
 }
@@ -1340,20 +1344,20 @@ function renderMain() {
     const search = all.length >= 3 ? `<input type="text" id="qs" placeholder="🔍 Tìm bài theo tên hoặc thẻ…" value="${esc(S.q || "")}" oninput="S.q=this.value;$('qlist').innerHTML=qListHtml()" autocomplete="off" style="margin-bottom:12px">` : "";
     m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">+ Thêm bài</button><button class="g" onclick="renameSub()">Đổi tên môn</button><button class="d" onclick="delSub()">Xóa môn</button></div>` : ""}</div>` + search + bar + `<div id="qlist">${qListHtml()}</div>`;
   } else if (S.view === "take") {
-    m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.</div></div>` +
+    m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.${S.deadline ? ` <b>Kiểm tra ${S.lim} phút, hết giờ tự động nộp bài.</b>` : ""}</div></div>` +
       S.qs.map((q, i) => `<div class="card"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
         (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${R(s.t)}</span><span class="tf-options"><label class="tf-choice yes"><input type="radio" name="q${i}${s.k}" value="1"> <span>✓ Đúng</span></label><label class="tf-choice no"><input type="radio" name="q${i}${s.k}" value="0"> <span>✕ Sai</span></label></span></div>`).join("")
           : q.sa !== undefined ? `<input type="text" class="sa" name="q${i}" placeholder="Nhập đáp án của bạn" autocomplete="off" style="margin-top:8px">`
           : q.opts.map(o => `<label class="op"><input type="radio" name="q${i}" value="${o.k}"> ${o.k}. ${R(o.t)}</label>`).join("")) + `</div>`).join("") +
       `<div class="row"><button onclick="submitQuiz()">Nộp bài</button><button class="g" onclick="go('list')">Thoát</button></div>` +
-      `<div class="dock"><span class="mphase" id="mph" aria-hidden="true"></span><span id="pc"></span><button onclick="submitQuiz()">Nộp bài</button></div>`;
+      `<div class="dock"><span class="mphase" id="mph" aria-hidden="true"></span><span id="pc"></span>${S.deadline ? `<span class="tm" id="tm"></span>` : ""}<button onclick="submitQuiz()">Nộp bài</button></div>`;
     m.onchange = onAnswer; m.oninput = onAnswer; applyAnswers(); updateProg();
   } else if (S.view === "review") {
     const { score, right } = grade(S.qs, S.A);
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="score">${score}/10</div>
-      <div class="mu">Đúng hoàn toàn ${right}/${S.qs.length} câu. ${S.admin ? "(Quản trị: kết quả không được lưu vào bảng.)" : "Kết quả đã được lưu (xem ở mục Thông tin)."}</div>
+      <div class="mu">Đúng hoàn toàn ${right}/${S.qs.length} câu.${S.mode === "test" && S.used != null ? ` Kiểm tra ${S.lim} phút · ${S.timeUp ? "hết giờ, bài được tự động nộp" : "nộp sau " + fmtClock(S.used)}.` : ""} ${S.admin ? "(Quản trị: kết quả không được lưu vào bảng.)" : "Kết quả đã được lưu (xem ở mục Thông tin)."}</div>
       <p><label><input type="checkbox" ${S.onlyWrong ? "checked" : ""} onchange="S.onlyWrong=this.checked;renderMain()"> Chỉ hiện câu sai</label></p>
-      <div class="row"><button onclick="take('${S.quiz.id}')">Làm lại</button><button class="g" onclick="go('list')">Về danh sách bài</button></div>${aiBlock()}</div>` +
+      <div class="row"><button onclick="pick('${S.quiz.id}')">Làm lại</button><button class="g" onclick="go('list')">Về danh sách bài</button></div>${aiBlock()}</div>` +
       S.qs.map((q, i) => reviewQ(q, i)).join("");
   } else if (S.view === "live") {
     m.innerHTML = renderLive();
@@ -1422,7 +1426,7 @@ function reviewQ(q, i) {
 function renderBoard() {
   const rows = S.results.slice(0, 300);
   $("board").innerHTML = `<h3>Bảng kết quả${S.results.length ? ` <small class="mu">(${S.results.length} lượt · cuộn để xem thêm)</small>` : ""}</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th>Rời tab</th><th></th>" : ""}</tr>` +
-    rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td>${r.sw ? `<span class="tag-no">${r.sw}</span>` : "0"}</td><td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
+    rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}${r.mode === "test" ? ` <small class="mu">· KT ${r.lim}p${r.tu ? " (hết giờ)" : ""}</small>` : ""}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td>${r.sw ? `<span class="tag-no">${r.sw}</span>` : "0"}</td><td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
 }
 
 /* ===================== LÀM BÀI ===================== */
@@ -1438,24 +1442,66 @@ function shuffleQuiz(qs) {
     return { ...q, opts: sh.map((o, i) => ({ ...o, k: String.fromCharCode(65 + i) })), ans: String.fromCharCode(65 + sh.indexOf(correct)) };
   });
 }
-function take(id, mode) {
+const PK = { min: 30 };
+function closePick() { const d = $("pkov"); if (d) d.remove(); }
+function pick(id) {
+  const q = S.quizzes.find(x => x.id === id); if (!q) return;
+  closePick(); PK.min = 30;
+  const d = document.createElement("div"); d.id = "pkov"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+  const box = "border:1.5px solid var(--bd);border-radius:12px;padding:12px 14px;margin-top:12px";
+  d.innerHTML = `<div class="card"><h3>${esc(q.title)}</h3><div class="mu">${nQ(q)} câu · chọn cách làm bài</div>
+    <div style="${box}"><b>📝 Tập luyện</b><div class="mu">Vào làm ngay, không giới hạn thời gian.</div><div class="row" style="margin-top:8px"><button data-a="pr">Vào làm ngay</button></div></div>
+    <div style="${box}"><b>⏱ Kiểm tra</b><div class="mu">Có đồng hồ đếm ngược, hết giờ tự động nộp bài. Chọn thời gian:</div>
+      <div class="chips" style="margin:8px 0">${[20, 30, 40, 50, 60].map(m => `<button type="button" class="chip ${m === 30 ? "on" : ""}" data-m="${m}">${m} phút</button>`).join("")}</div>
+      <div class="row"><button data-a="te">Bắt đầu kiểm tra</button></div></div>
+    <div class="row" style="margin-top:12px"><button class="g" data-a="x">Hủy</button></div></div>`;
+  d.onclick = e => {
+    if (e.target === d) return closePick();
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.m) { PK.min = +b.dataset.m; d.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", c === b)); return; }
+    const a = b.dataset.a;
+    if (a === "x") closePick();
+    else if (a === "pr") { closePick(); take(id, "new", "practice"); }
+    else if (a === "te") { closePick(); take(id, "new", "test", PK.min); }
+  };
+  d.addEventListener("keydown", e => { if (e.key === "Escape") closePick(); });
+  document.body.appendChild(d);
+}
+const fmtClock = s => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+function tick() {
+  if (S.view !== "take" || !S.deadline) return;
+  const left = Math.ceil((S.deadline - Date.now()) / 1000);
+  if (left <= 0) { submitQuiz(true); return; }
+  const el = $("tm"); if (el) { el.textContent = "⏱ " + fmtClock(left); el.classList.toggle("low", left <= 300); }
+}
+setInterval(tick, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+function take(id, how, kind, min) {
   S.quiz = S.quizzes.find(q => q.id === id);
   if (!S.quiz) return go("list");
-  const d = loadDraft();
-  if (d && (mode === "resume" || (mode !== "new" && confirm(`Bạn có bài đang làm dở (đã trả lời ${Object.keys(d.A).length} ý/câu). Bấm OK để làm tiếp, Hủy để làm bài mới.`)))) { S.qs = d.qs; S.A = d.A; S.sw = d.sw || 0; }
-  else { clearDraft(); S.qs = shuffleQuiz(parse(S.quiz.text).qs.map((q, i) => ({ ...q, oi: i }))); S.A = {}; S.sw = 0; }
-  SW.away = false; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {};
+  const d = how === "resume" ? loadDraft() : null;
+  if (d) { S.qs = d.qs; S.A = d.A; S.sw = d.sw || 0; S.mode = d.mode === "test" ? "test" : "practice"; S.lim = d.lim || 0; S.deadline = d.dl || 0; }
+  else {
+    clearDraft(); S.qs = shuffleQuiz(parse(S.quiz.text).qs.map((q, i) => ({ ...q, oi: i }))); S.A = {}; S.sw = 0;
+    S.mode = kind === "test" && min ? "test" : "practice"; S.lim = S.mode === "test" ? min : 0; S.deadline = S.mode === "test" ? Date.now() + min * 60000 : 0;
+  }
+  SW.away = false; S.onlyWrong = false; S.aiCache = {}; S.aiBusy = {}; S.timeUp = false; S.used = null;
   S.view = "take"; renderSide(); renderMain(); window.scrollTo(0, 0);
+  if (S.deadline) saveDraft();
   const sb = S.subjects.find(x => x.id === S.quiz.subject);
-  liveSend({ state: "doing", quiz: S.quiz.title, subject: sb ? sb.name : null, since: Date.now(), sw: S.sw || 0 });
+  liveSend({ state: "doing", quiz: S.quiz.title + (S.mode === "test" ? " (kiểm tra " + S.lim + "p)" : ""), subject: sb ? sb.name : null, since: Date.now(), sw: S.sw || 0 });
+  tick();
 }
-function submitQuiz() {
+function submitQuiz(force) {
+  if (S.view !== "take") return;
   const { A, miss } = readAnswers();
-  if (miss && !confirm(`Còn ${miss} ý/câu chưa trả lời. Vẫn nộp bài?`)) return;
+  if (!force && miss && !confirm(`Còn ${miss} ý/câu chưa trả lời. Vẫn nộp bài?`)) return;
   S.A = A;
+  if (S.mode === "test" && S.deadline) { S.timeUp = !!force; S.used = Math.max(0, Math.min(S.lim * 60, Math.round((Date.now() - (S.deadline - S.lim * 60000)) / 1000))); }
+  S.deadline = 0;
   const { score } = grade(S.qs, A);
   const wr = S.qs.map((q, i) => qOk(q, i) ? null : q.oi).filter(x => x != null);
-  if (!S.admin) store.put("results", { id: uid(), name: S.user, quiz: S.quiz.title, quizId: S.quiz.id, score, time: Date.now(), sw: S.sw || 0, n: S.qs.length, wr });
+  if (!S.admin) store.put("results", { id: uid(), name: S.user, quiz: S.quiz.title, quizId: S.quiz.id, score, time: Date.now(), sw: S.sw || 0, n: S.qs.length, wr, ...(S.mode === "test" ? { mode: "test", lim: S.lim, used: S.used, tu: !!S.timeUp } : {}) });
   clearDraft();
   liveSend(LIVE_IDLE);
   S.view = "review"; renderMain(); window.scrollTo(0, 0);
@@ -1510,8 +1556,8 @@ function qListHtml() {
     const d = loadDraft(q), i = all.indexOf(q), st = qStatus(q);
     const tg = (q.tags || []).length ? `<div class="tagrow">${q.tags.map(t => `<button class="tg" style="border:0;cursor:pointer" data-t="${esc(t)}" onclick="setTag(this.dataset.t)">${esc(t)}</button>`).join("")}</div>` : "";
     const mv = canMove ? `<button class="g" title="Đưa lên" onclick="moveQuiz('${q.id}',-1)" ${i === 0 || qStatus(all[i - 1]) !== st ? "disabled" : ""}>▲</button><button class="g" title="Đưa xuống" onclick="moveQuiz('${q.id}',1)" ${i === all.length - 1 || qStatus(all[i + 1]) !== st ? "disabled" : ""}>▼</button>` : "";
-    const go1 = d ? `<button onclick="take('${q.id}','resume')">Tiếp tục</button><button class="g" onclick="take('${q.id}','new')">Làm lại</button>` : `<button onclick="take('${q.id}')">Làm bài</button>`;
-    return `<div class="card row sp"><div><b>${esc(q.title)}</b>${st === "new" ? `<span class="bdg new">MỚI</span>` : st === "old" ? `<span class="bdg old">Cũ</span>` : ""}${best[q.id] >= 8 ? `<span class="done" title="Đã đạt từ 8 điểm trở lên (cao nhất: ${String(best[q.id]).replace(".", ",")})">✓</span>` : ""}<div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)</span>` : ""}</div>${tg}</div>
+    const go1 = d ? `<button onclick="take('${q.id}','resume')">Tiếp tục</button><button class="g" onclick="pick('${q.id}')">Làm lại</button>` : `<button onclick="pick('${q.id}')">Làm bài</button>`;
+    return `<div class="card row sp"><div><b>${esc(q.title)}</b>${st === "new" ? `<span class="bdg new">MỚI</span>` : st === "old" ? `<span class="bdg old">Cũ</span>` : ""}${best[q.id] >= 8 ? `<span class="done" title="Đã đạt từ 8 điểm trở lên (cao nhất: ${String(best[q.id]).replace(".", ",")})">✓</span>` : ""}<div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)${d.dl ? ` · ⏱ kiểm tra ${d.lim}p, ${d.dl > Date.now() ? "còn " + Math.ceil((d.dl - Date.now()) / 60000) + " phút" : "đã hết giờ"}` : ""}</span>` : ""}</div>${tg}</div>
       <div class="row">${mv}${go1}${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
   }).join("");
 }
