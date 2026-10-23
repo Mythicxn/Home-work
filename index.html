@@ -151,6 +151,33 @@ pre{background:var(--bg);padding:12px;border-radius:12px;overflow-x:auto;font-si
 
 @media(max-width:720px){#app{grid-template-columns:1fr}aside{position:static;max-height:none}header{padding:12px 16px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* chat */
+#cbtn{position:fixed;right:18px;bottom:18px;z-index:800;width:56px;height:56px;border-radius:50%;padding:0;display:grid;place-items:center;box-shadow:0 8px 24px rgba(10,12,50,.35)}
+#cbtn svg{width:26px;height:26px}
+#cbtn .bg,.cl .bg{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--no);color:#fff;font:700 .72rem/20px var(--hf);text-align:center}
+#cpanel{position:fixed;top:0;right:0;bottom:0;z-index:810;width:min(360px,100vw);background:var(--card);border-left:1px solid var(--bd);box-shadow:-10px 0 30px rgba(10,12,50,.25);display:flex;flex-direction:column;transform:translateX(105%);transition:transform .22s;visibility:hidden}
+#cpanel.on{transform:none;visibility:visible}
+.ch{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);background:linear-gradient(100deg,#0e1137,#1f2478);color:#fff}
+.ch b{flex:1;font-family:var(--hf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch button{background:rgba(255,255,255,.12);padding:4px 11px;border-radius:999px}
+#clist,#cmsgs{flex:1;overflow-y:auto;padding:8px}
+.cl{position:relative;display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;color:var(--tx);border-radius:12px;padding:8px 10px;font-weight:500}
+.cl:hover{background:color-mix(in srgb,var(--pr) 10%,transparent);transform:none;filter:none}
+.cav{position:relative;flex:none;width:40px;height:40px;border-radius:50%;background:var(--pr);color:#fff;display:grid;place-items:center;font-weight:700}
+.cav i{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#9aa0b8;border:2px solid var(--card)}
+.cav i.on{background:var(--ok)}
+.cl .nm{flex:1;min-width:0}.cl .nm b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl .nm small{display:block;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl .bg{position:static}
+.csep{padding:8px 10px 2px;color:var(--mu);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+#cmsgs{display:flex;flex-direction:column;gap:6px}
+.mb{max-width:80%;padding:7px 12px;border-radius:16px;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.4}
+.mb small{display:block;font-size:.7rem;opacity:.7;margin-top:2px}
+.mb.me{align-self:flex-end;background:var(--pr);color:#fff;border-bottom-right-radius:4px}
+.mb.th{align-self:flex-start;background:color-mix(in srgb,var(--pr) 12%,var(--card));border:1px solid var(--bd);border-bottom-left-radius:4px}
+#cform{display:flex;gap:8px;padding:10px;border-top:1px solid var(--bd)}
+#cform input{flex:1}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -185,6 +212,14 @@ pre{background:var(--bg);padding:12px;border-radius:12px;overflow-x:auto;font-si
   </div>
 </div>
 
+
+<button id="cbtn" type="button" hidden aria-label="Tin nhắn" onclick="chatToggle()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.6A8 8 0 1 1 21 12z"/></svg><span class="bg" id="cbg" hidden></span></button>
+<aside id="cpanel" aria-label="Chat">
+  <div class="ch"><button type="button" id="cback" hidden onclick="chatOpen(null)" aria-label="Quay lại">←</button><b id="ctitle">Tin nhắn</b><button type="button" onclick="chatToggle(false)" aria-label="Đóng">✕</button></div>
+  <div id="clist"></div>
+  <div id="cmsgs" hidden></div>
+  <div id="cform" hidden><input type="text" id="cin" maxlength="500" placeholder="Nhập tin nhắn..." autocomplete="off"><button type="button" onclick="chatSend()">Gửi</button></div>
+</aside>
 <script>
 /* ===================== CẤU HÌNH ===================== */
 const CONFIG = {
@@ -239,7 +274,8 @@ let store, cloud = false;
       get: (c, id) => fs.collection(c).doc(id).get().then(d => d.exists ? { ...d.data(), id: d.id } : null),
       put: (c, o) => fs.collection(c).doc(o.id).set(o),
       patch: (c, id, p) => fs.collection(c).doc(id).update(p),
-      del: (c, id) => fs.collection(c).doc(id).delete()
+      del: (c, id) => fs.collection(c).doc(id).delete(),
+      subq: (c, f, v, cb, er) => fs.collection(c).where(f, "array-contains", v).onSnapshot(s => cb(s.docs.map(d => ({ ...d.data(), id: d.id }))), er || (e => console.error(c, e)))
     };
   } else {
     const subs = {};
@@ -250,7 +286,8 @@ let store, cloud = false;
       get: (c, id) => Promise.resolve(get(c).find(x => x.id === id) || null),
       put: (c, o) => { set(c, get(c).filter(x => x.id !== o.id).concat(o)); return Promise.resolve(); },
       patch: (c, id, p) => { set(c, get(c).map(x => x.id === id ? { ...x, ...p } : x)); return Promise.resolve(); },
-      del: (c, id) => { set(c, get(c).filter(x => x.id !== id)); return Promise.resolve(); }
+      del: (c, id) => { set(c, get(c).filter(x => x.id !== id)); return Promise.resolve(); },
+      subq: (c, f, v, cb) => store.sub(c, a => cb(a.filter(x => (x[f] || []).includes(v))))
     };
   }
 })();
@@ -433,6 +470,7 @@ async function login() {
   $("who").innerHTML = `<span>${esc(S.user)}${S.admin ? " (quản trị)" : ""}</span><button onclick="logout()">Đổi người</button>`;
   start();
   if (!S.admin) { liveInit(); checkWarn(); }
+  chatInit();
 }
 function logout() { (cloud ? firebase.auth().signOut() : Promise.resolve()).catch(() => {}).finally(() => location.reload()); }
 $("lg2").src = $("lg").src;
@@ -1544,6 +1582,85 @@ async function saveQuiz() {
 }
 function delQuiz(id) { if (confirm("Xóa bài này?")) store.del("quizzes", id); }
 function delRes(id) { if (confirm("Xóa dòng kết quả này?")) store.del("results", id); }
+
+/* ===================== CHAT RIÊNG GIỮA CÁC BẠN ===================== */
+// Collection "presence": mỗi người 1 doc báo "còn online". Collection "dm": tin nhắn, members = [khóa 2 người].
+const PRES_TTL = 150000, PRES_BEAT = 60000;
+const CH = { on: false, open: false, peer: null, pres: [], dm: [], me: null };
+const chName = k => { const n = [CONFIG.ADMIN].concat(STUDENTS).find(x => pkey(x) === k); return n || k; };
+const chLabel = k => chName(k) + (k === pkey(CONFIG.ADMIN) ? " (quản trị)" : "");
+const chAv = k => (chName(k).trim().split(" ").pop() || "?").charAt(0).toUpperCase();
+const chIsOn = k => { const p = CH.pres.find(x => x.id === "p_" + k); return !!p && Date.now() - (p.last || 0) < PRES_TTL; };
+const chReadKey = k => "lh_cr_" + CH.me + "_" + k;
+const chRead = k => { try { return +localStorage.getItem(chReadKey(k)) || 0; } catch (e) { return 0; } };
+const chMark = k => { const t = CH.dm.reduce((m, x) => x.from === k ? Math.max(m, x.t || 0) : m, 0); try { if (t) localStorage.setItem(chReadKey(k), String(t)); } catch (e) {} };
+const chMsgs = k => CH.dm.filter(m => (m.members || []).includes(k)).sort((a, b) => (a.t || 0) - (b.t || 0));
+const chUnread = k => CH.dm.filter(m => m.from === k && (m.t || 0) > chRead(k)).length;
+function chBeat(off) {
+  try { Promise.resolve(store.put("presence", { id: "p_" + CH.me, name: S.user, last: off ? 0 : Date.now() })).catch(() => {}); } catch (e) {}
+}
+function chatInit() {
+  if (CH.on) return; CH.on = true;
+  CH.me = pkey(S.user);
+  $("cbtn").hidden = false;
+  store.sub("presence", a => { CH.pres = a; if (CH.open && !CH.peer) chList(); else if (CH.open) chHead(); }, e => console.warn("presence", e));
+  store.subq("dm", "members", CH.me, a => {
+    CH.dm = a;
+    if (CH.open && CH.peer) { chMark(CH.peer); chThread(); }
+    chBadge(); if (CH.open && !CH.peer) chList();
+  }, e => console.warn("dm", e));
+  chBeat();
+  setInterval(() => { if (!document.hidden) chBeat(); if (CH.open && !CH.peer) chList(); }, PRES_BEAT / 2);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) chBeat(); });
+  addEventListener("pagehide", () => chBeat(true));
+  $("cin").addEventListener("keydown", e => { if (e.key === "Enter") chatSend(); });
+}
+function chBadge() {
+  const n = [CONFIG.ADMIN].concat(STUDENTS).reduce((c, x) => c + chUnread(pkey(x)), 0), b = $("cbg");
+  b.hidden = !n; b.textContent = n > 99 ? "99+" : n;
+}
+function chatToggle(v) {
+  CH.open = v === undefined ? !CH.open : v;
+  $("cpanel").classList.toggle("on", CH.open);
+  if (CH.open) { chBeat(); chatOpen(CH.peer); }
+}
+function chHead() {
+  const k = CH.peer;
+  $("cback").hidden = !k;
+  $("ctitle").innerHTML = k ? `${esc(chLabel(k))} <small style="font-weight:400;opacity:.8">· ${chIsOn(k) ? "đang online" : "offline"}</small>` : "Tin nhắn";
+}
+function chatOpen(k) {
+  CH.peer = k;
+  $("clist").hidden = !!k; $("cmsgs").hidden = !k; $("cform").hidden = !k;
+  chHead();
+  if (k) { chMark(k); chBadge(); chThread(true); $("cin").focus(); } else chList();
+}
+function chList() {
+  const list = [CONFIG.ADMIN].concat(STUDENTS).map(pkey).filter(k => k !== CH.me);
+  const last = k => { const m = chMsgs(k); return m.length ? m[m.length - 1] : null; };
+  const rows = list.map(k => ({ k, on: chIsOn(k), l: last(k), u: chUnread(k) }))
+    .sort((a, b) => (b.on - a.on) || ((b.l ? b.l.t : 0) - (a.l ? a.l.t : 0)) || chName(a.k).localeCompare(chName(b.k), "vi"));
+  const item = r => `<button type="button" class="cl" onclick="chatOpen('${r.k}')"><span class="cav">${esc(chAv(r.k))}<i class="${r.on ? "on" : ""}"></i></span>
+    <span class="nm"><b>${esc(chLabel(r.k))}</b><small>${r.l ? (r.l.from === CH.me ? "Bạn: " : "") + esc(r.l.text) : (r.on ? "Đang online" : "Offline")}</small></span>${r.u ? `<span class="bg">${r.u}</span>` : ""}</button>`;
+  const on = rows.filter(r => r.on), off = rows.filter(r => !r.on);
+  $("clist").innerHTML = (on.length ? `<div class="csep">Đang online · ${on.length}</div>` + on.map(item).join("") : "") +
+    (off.length ? `<div class="csep">Offline</div>` + off.map(item).join("") : "");
+}
+function chThread(force) {
+  const b = $("cmsgs"), near = force || b.scrollHeight - b.scrollTop - b.clientHeight < 80;
+  const ms = chMsgs(CH.peer), today = new Date().toDateString();
+  b.innerHTML = ms.length ? ms.map(m => {
+    const d = new Date(m.t || 0), tm = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + (d.toDateString() === today ? "" : " " + d.toLocaleDateString("vi-VN"));
+    return `<div class="mb ${m.from === CH.me ? "me" : "th"}">${esc(m.text)}<small>${tm}</small></div>`;
+  }).join("") : `<p class="mu" style="text-align:center;margin-top:30px">Chưa có tin nhắn nào. Hãy nói xin chào nhé!</p>`;
+  if (near) b.scrollTop = b.scrollHeight;
+}
+function chatSend() {
+  const i = $("cin"), t = i.value.trim().slice(0, 500);
+  if (!t || !CH.peer) return;
+  i.value = "";
+  store.put("dm", { id: uid(), members: [CH.me, CH.peer].sort(), from: CH.me, text: t, t: Date.now() }).catch(e => alert("Không gửi được: " + (e.message || e)));
+}
 </script>
 </body>
 </html>
