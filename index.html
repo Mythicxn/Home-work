@@ -103,6 +103,9 @@ div.op{cursor:default}
 .chip:hover{border-color:var(--pr);transform:translateY(-1px)}
 .chip.on{border-color:var(--pr);background:var(--pr);color:#fff}
 .tagrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bdg{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;font-size:.7rem;font-weight:800;vertical-align:middle;letter-spacing:.03em}
+.bdg.new{background:var(--moon);color:#3a2a00}.bdg.old{background:color-mix(in srgb,var(--mu) 18%,var(--card));color:var(--mu)}
+.done{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin-left:8px;border-radius:50%;background:var(--ok);color:#fff;font-size:.8rem;font-weight:800;vertical-align:middle}
 .tg{padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--pr) 12%,var(--card));color:var(--pr);font-size:.78rem;font-weight:700}
 .st .tf-options{display:grid;grid-template-columns:104px 104px;gap:12px;justify-content:end}
 .st .tf-choice{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:104px;margin:0;padding:7px 13px;border:1.5px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);font-weight:600;cursor:pointer;transition:transform .15s,border-color .15s,background .15s;white-space:nowrap}
@@ -1333,6 +1336,7 @@ function renderMain() {
       <p><label>Tên bài<input type="text" id="et" value="${esc(q.title)}"></label></p>
       <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
       <p><label>Thẻ phân loại (cách nhau bằng dấu phẩy)<input type="text" id="etg" list="etgl" value="${esc((q.tags || []).join(", "))}" placeholder="vd: HK1, Bài 1, Ôn tập" autocomplete="off"></label><datalist id="etgl">${allTags().map(x => `<option value="${esc(x.t)}">`).join("")}</datalist>${allTags().length ? `<span class="chips" style="margin:6px 0 0">${allTags().map(x => `<button type="button" class="chip" data-t="${esc(x.t)}" onclick="addTagToInput(this.dataset.t)">+ ${esc(x.t)}</button>`).join("")}</span>` : ""}</p>
+      <p><label>Nhãn Mới/Cũ<select id="est"><option value="" ${!q.st ? "selected" : ""}>Tự động (Mới 3 ngày đầu, Cũ sau 6 ngày)</option><option value="new" ${q.st === "new" ? "selected" : ""}>Luôn là Mới</option><option value="old" ${q.st === "old" ? "selected" : ""}>Luôn là Cũ</option></select></label></p>
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
       <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh &amp; cắt (có ✨ AI gợi ý khung)</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh, bấm nút, chọn ảnh → cửa sổ cắt mở ra: tự kéo khung hoặc bấm “✨ AI gợi ý khung”.</span></p>
       <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI gõ lại câu hỏi theo từng trang, rồi đề xuất khung cắt hình để bạn chỉnh/duyệt.</span></p>
@@ -1443,24 +1447,39 @@ function allTags(subjectId) {
 }
 const NC = {};
 const nQ = q => { const k = q.id + ":" + q.text.length; return NC[k] !== undefined ? NC[k] : (NC[k] = parse(q.text).qs.length); };
+const DAY_MS = 864e5, NEW_DAYS = 3, OLD_DAYS = 6, ST_RANK = { new: 0, "": 1, old: 2 };
+function qStatus(q) {
+  if (q.st === "new" || q.st === "old") return q.st;
+  const d = (Date.now() - (q.time || 0)) / DAY_MS;
+  return d < NEW_DAYS ? "new" : d >= OLD_DAYS ? "old" : "";
+}
+function sortedQuizzes(subjectId) {
+  return S.quizzes.filter(q => q.subject === subjectId).map((q, i) => [q, i])
+    .sort((a, b) => ST_RANK[qStatus(a[0])] - ST_RANK[qStatus(b[0])] || a[1] - b[1]).map(x => x[0]);
+}
+function bestScores() {
+  const m = {}, me = norm(S.user || "");
+  S.results.forEach(r => { if (r.quizId && norm(r.name || "") === me && !(m[r.quizId] >= r.score)) m[r.quizId] = r.score; });
+  return m;
+}
 function qListHtml() {
   const sub = S.subjects.find(x => x.id === S.sub); if (!sub) return "";
-  const all = S.quizzes.filter(q => q.subject === sub.id), k = norm(S.q || "");
+  const all = sortedQuizzes(sub.id), k = norm(S.q || ""), best = bestScores();
   const qz = all.filter(q => (!S.tag || (q.tags || []).some(t => tagKey(t) === tagKey(S.tag))) && (!k || norm(q.title + " " + (q.tags || []).join(" ")).includes(k)));
   if (!qz.length) return `<div class="card mu">${S.tag || k ? "Không tìm thấy bài phù hợp." : "Môn này chưa có bài nào." + (S.admin ? " Bấm “Thêm bài” để upload bài đầu tiên." : "")}</div>`;
   const canMove = S.admin && !S.tag && !k;
   return qz.map(q => {
-    const d = loadDraft(q), i = all.indexOf(q);
+    const d = loadDraft(q), i = all.indexOf(q), st = qStatus(q);
     const tg = (q.tags || []).length ? `<div class="tagrow">${q.tags.map(t => `<button class="tg" style="border:0;cursor:pointer" data-t="${esc(t)}" onclick="setTag(this.dataset.t)">${esc(t)}</button>`).join("")}</div>` : "";
-    const mv = canMove ? `<button class="g" title="Đưa lên" onclick="moveQuiz('${q.id}',-1)" ${i === 0 ? "disabled" : ""}>▲</button><button class="g" title="Đưa xuống" onclick="moveQuiz('${q.id}',1)" ${i === all.length - 1 ? "disabled" : ""}>▼</button>` : "";
+    const mv = canMove ? `<button class="g" title="Đưa lên" onclick="moveQuiz('${q.id}',-1)" ${i === 0 || qStatus(all[i - 1]) !== st ? "disabled" : ""}>▲</button><button class="g" title="Đưa xuống" onclick="moveQuiz('${q.id}',1)" ${i === all.length - 1 || qStatus(all[i + 1]) !== st ? "disabled" : ""}>▼</button>` : "";
     const go1 = d ? `<button onclick="take('${q.id}','resume')">Tiếp tục</button><button class="g" onclick="take('${q.id}','new')">Làm lại</button>` : `<button onclick="take('${q.id}')">Làm bài</button>`;
-    return `<div class="card row sp"><div><b>${esc(q.title)}</b><div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)</span>` : ""}</div>${tg}</div>
+    return `<div class="card row sp"><div><b>${esc(q.title)}</b>${st === "new" ? `<span class="bdg new">MỚI</span>` : st === "old" ? `<span class="bdg old">Cũ</span>` : ""}${best[q.id] >= 8 ? `<span class="done" title="Đã đạt từ 8 điểm trở lên (cao nhất: ${String(best[q.id]).replace(".", ",")})">✓</span>` : ""}<div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)</span>` : ""}</div>${tg}</div>
       <div class="row">${mv}${go1}${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
   }).join("");
 }
 function moveQuiz(id, dir) {
-  const all = S.quizzes.filter(q => q.subject === S.sub), i = all.findIndex(q => q.id === id), j = i + dir;
-  if (i < 0 || j < 0 || j >= all.length) return;
+  const all = sortedQuizzes(S.sub), i = all.findIndex(q => q.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= all.length || qStatus(all[i]) !== qStatus(all[j])) return;
   const arr = all.slice(); [arr[i], arr[j]] = [arr[j], arr[i]];
   Promise.all(arr.map((q, n) => q.order === (n + 1) * 10 ? null : store.patch("quizzes", q.id, { order: (n + 1) * 10 }))).catch(e => alert("Không đổi được thứ tự: " + e.message));
 }
@@ -1520,7 +1539,7 @@ async function saveQuiz() {
   if (S.quiz.id && S.quiz.subject === newSub) order = S.quiz.order != null ? S.quiz.order : null;
   else { const os = S.quizzes.filter(q => q.subject === newSub && q.order != null).map(q => q.order); if (os.length) order = Math.max(...os) + 10; }
   S.sub = newSub;
-  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, imgs, tags: parseTags($("etg").value), order, time: S.quiz.time || Date.now() })
+  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, imgs, tags: parseTags($("etg").value), st: $("est").value, order, time: S.quiz.time || Date.now() })
     .then(() => go("list")).catch(e => alert("Lưu thất bại: " + e.message));
 }
 function delQuiz(id) { if (confirm("Xóa bài này?")) store.del("quizzes", id); }
