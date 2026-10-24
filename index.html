@@ -964,6 +964,9 @@ Quy tắc:
 - Mọi câu phải có answer: tự giải để chọn đáp án đúng nhất; dấu khoanh/chữ viết tay chỉ để tham khảo vì có thể sai. Không chắc thì unsure=true.
 - Công thức viết LaTeX trong $...$, hóa học $\\ce{H2SO4}$; bảng số liệu chuyển thành chữ.
 - Hình vẽ/sơ đồ/đồ thị cần nhìn để làm bài: khung ôm sát hình (không lấy chữ của đề) đặt vào fig_stem (hình thuộc phần đề dẫn) hoặc fig_opt (hình nằm trong đáp án/ý). Tọa độ ${prov === "claude" ? `pixel (ảnh rộng ${w}, cao ${h}, gốc trên-trái)` : "chuẩn hóa 0–1000 (gốc trên-trái)"}. Không có hình thì [] hoặc {}.
+- Khối ký hiệu khó gõ lại chính xác (đoạn trình tự DNA/RNA/protein có mũi tên, số vị trí, dấu ngoặc; bảng mã codon; sơ đồ lai; mạch điện; sơ đồ phản ứng nhiều dòng): KHÔNG gõ lại. Đưa khung ôm cả khối đó (gồm mũi tên và số vị trí) vào fig_stem, còn stem chỉ ghi phần chữ thường của đề. Chỉ gõ lại khi là một chuỗi ngắn nằm ngay trong câu văn.
+- Chỉ số trên/dưới và tên gene/kí hiệu viết bằng LaTeX trong $...$, ví dụ $X^{w^+}X^{w^-}$, $X^{w^-}Y$, $\\text{CO}_2$; không bỏ dấu + hoặc −.
+- Nét bút, vòng tròn, gạch chân, số viết tay đè lên chữ in: bỏ qua, chỉ đọc chữ in. Câu cần phân tích sâu (di truyền, tính toán nhiều bước) mà chưa chắc đáp án thì đặt unsure=true.
 - QUAN TRỌNG: nếu các đáp án A/B/C/D là HÌNH (mạch logic, sơ đồ, đồ thị, hình thí nghiệm...) thì để options là chuỗi rỗng "" và BẮT BUỘC điền khung riêng cho TỪNG đáp án vào fig_opt (đủ A, B, C, D). Hình/bảng nằm ở phần đề dẫn (bảng chân trị, đồ thị...) thì đưa vào fig_stem.
 - Câu bắt đầu từ trang trước (thiếu phần đầu): start_cut=true. Câu bị cắt ở cuối trang (thiếu phần sau): end_cut=true. Vẫn ghi phần nhìn thấy.`;
 function pageFigs(q, pi, im, prov) {
@@ -1013,7 +1016,7 @@ async function aiScan(files) {
   const st = $("eas"), quiz = S.quiz;
   if (!aiReady()) { st.innerHTML = `<span class="tag-no">AI chưa bật. Vào “Cài đặt AI” nhập key trước.</span>`; return; }
   try {
-    st.textContent = "Đang đọc ảnh…"; const pages = []; for (const f of files) pages.push(await compress(f, 1800, 0.85)); PAGES = pages;
+    st.textContent = "Đang đọc ảnh…"; const pages = []; for (const f of files) pages.push(await compress(f, 2400, 0.85)); PAGES = pages;
     const prov = S.ai.provider; let done = 0;
     const rs = await pool(pages, 3, async (src, i) => {
       const im = await loadImg(src); let err;
