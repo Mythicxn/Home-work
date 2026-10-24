@@ -54,14 +54,45 @@ details.card summary{cursor:pointer}
 .sp{justify-content:space-between}
 .mu{color:var(--mu);font-size:.9rem}
 
-/* login */
-#login{max-width:440px;margin:90px auto 60px;padding:0 16px}
-#login .card{border:0;border-radius:26px;padding:1px 28px 26px;box-shadow:0 26px 60px rgba(5,7,40,.5)}
-#login h2{margin:.1em 0 .3em;text-align:center;font-size:1.4rem}
-#login .mu{text-align:center}
-#login input[type=password]{border-radius:12px!important;border-width:1.5px!important}
-#login button{width:100%;margin-top:6px;padding:13px;background:var(--moon);color:#171a4a;font-size:1rem}
-#err{color:var(--no);min-height:1.5em;margin:8px 0 0;text-align:center}
+/* Violet Glass — kính tím trên nền xanh đêm cùng tông với thanh bên/header trong trang; trăng xoay chậm */
+body:has(#login:not([hidden])){position:relative;isolation:isolate;overflow-x:hidden;min-height:100vh;background:var(--stars),radial-gradient(ellipse 55% 50% at 24% 38%,rgba(124,86,240,.34),transparent 70%),radial-gradient(ellipse at 85% 90%,rgba(61,66,201,.28),transparent 50%),linear-gradient(160deg,#0a0d30 0%,#141a5a 55%,#1d2272 100%);background-attachment:fixed}
+body:has(#login:not([hidden])) header{background:transparent}
+#login{position:relative;max-width:980px;min-height:calc(100vh - 78px);margin:0 auto;padding:24px 24px 56px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,410px);gap:clamp(32px,7vw,88px);align-items:center}
+.lg-hero{min-width:0}
+.moon-wrap{position:relative;width:clamp(190px,27vw,300px);aspect-ratio:1;margin:0 0 30px;border-radius:50%;box-shadow:0 0 0 1px rgba(244,191,79,.5),0 18px 70px rgba(124,86,240,.45),0 0 130px rgba(244,191,79,.16)}
+.moon-wrap::before{content:"";position:absolute;inset:-20px;border-radius:50%;border:1px dashed rgba(200,190,255,.32);pointer-events:none}
+.moon{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 30%,#fff3c8 0%,#f4bf4f 58%,#d9a032 100%)}
+/* bề mặt rộng gấp đôi, trượt đúng 1 tile → xoay vô tận không giật */
+.moon-surface{position:absolute;top:0;left:0;width:200%;height:100%;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20400%20400%27%20preserveAspectRatio%3D%27none%27%3E%3Cellipse%20cx%3D%27110%27%20cy%3D%27170%27%20rx%3D%2770%27%20ry%3D%2748%27%20fill%3D%27%235b3fb0%27%20fill-opacity%3D%27.12%27/%3E%3Cellipse%20cx%3D%27290%27%20cy%3D%27110%27%20rx%3D%2756%27%20ry%3D%2740%27%20fill%3D%27%235b3fb0%27%20fill-opacity%3D%27.12%27/%3E%3Cellipse%20cx%3D%27230%27%20cy%3D%27320%27%20rx%3D%2780%27%20ry%3D%2744%27%20fill%3D%27%235b3fb0%27%20fill-opacity%3D%27.12%27/%3E%3Ccircle%20cx%3D%2760%27%20cy%3D%2790%27%20r%3D%2734%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%2755.9%27%20cy%3D%2785.9%27%20r%3D%2729.2%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%272.4%27/%3E%3Ccircle%20cx%3D%27150%27%20cy%3D%27250%27%20r%3D%2726%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27146.9%27%20cy%3D%27246.9%27%20r%3D%2722.4%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.8%27/%3E%3Ccircle%20cx%3D%27230%27%20cy%3D%27120%27%20r%3D%2720%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27227.6%27%20cy%3D%27117.6%27%20r%3D%2717.2%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%27300%27%20cy%3D%27300%27%20r%3D%2740%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27295.2%27%20cy%3D%27295.2%27%20r%3D%2734.4%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%272.8%27/%3E%3Ccircle%20cx%3D%27340%27%20cy%3D%2770%27%20r%3D%2724%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27337.1%27%20cy%3D%2767.1%27%20r%3D%2720.6%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.7%27/%3E%3Ccircle%20cx%3D%27110%27%20cy%3D%27350%27%20r%3D%2716%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27108.1%27%20cy%3D%27348.1%27%20r%3D%2713.8%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%27250%27%20cy%3D%27220%27%20r%3D%2712%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27248.6%27%20cy%3D%27218.6%27%20r%3D%2710.3%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%2740%27%20cy%3D%27260%27%20r%3D%2714%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%2738.3%27%20cy%3D%27258.3%27%20r%3D%2712.0%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%27190%27%20cy%3D%2740%27%20r%3D%2714%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27188.3%27%20cy%3D%2738.3%27%20r%3D%2712.0%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%27370%27%20cy%3D%27200%27%20r%3D%2718%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27367.8%27%20cy%3D%27197.8%27%20r%3D%2715.5%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%27290%27%20cy%3D%27170%27%20r%3D%2710%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27288.8%27%20cy%3D%27168.8%27%20r%3D%278.6%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%27130%27%20cy%3D%27160%27%20r%3D%2710%27%20fill%3D%27%236a45b8%27%20fill-opacity%3D%27.26%27/%3E%3Ccircle%20cx%3D%27128.8%27%20cy%3D%27158.8%27%20r%3D%278.6%27%20fill%3D%27none%27%20stroke%3D%27%23fff8e0%27%20stroke-opacity%3D%27.5%27%20stroke-width%3D%271.5%27/%3E%3C/svg%3E") repeat-x;background-size:50% 100%;animation:moonspin 90s linear infinite;will-change:transform}
+/* bóng cầu cố định: sáng góc trên trái, phía tối ngả tím */
+.moon::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.38) 0%,transparent 42%),radial-gradient(circle at 50% 50%,transparent 50%,rgba(70,38,150,.42) 100%),radial-gradient(circle at 74% 80%,rgba(50,24,120,.38) 0%,transparent 58%)}
+@keyframes moonspin{to{transform:translateX(-50%)}}
+.lg-eyebrow{display:inline-block;margin:0 0 14px;padding:4px 12px;border-radius:999px;font-size:.78rem;font-weight:600;color:#fdf1cf;background:rgba(244,191,79,.14);border:1px solid rgba(244,191,79,.45)}
+.lg-title{margin:0;font:800 clamp(2.1rem,4.6vw,3.2rem)/1.08 var(--hf);letter-spacing:-.03em;color:#faf8ff}
+.lg-title span{color:#b9a6ff}
+.lg-sub{margin:14px 0 0;max-width:30em;color:#bfc4ee;font-size:1rem}
+#login .card{position:relative;overflow:hidden;margin:0;padding:30px 30px 28px;border:1px solid rgba(190,176,255,.26);border-radius:25px;background:linear-gradient(145deg,rgba(44,46,122,.55),rgba(14,16,52,.78));box-shadow:0 28px 90px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.09),0 0 45px rgba(111,61,226,.12);backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
+#login .card::before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,transparent,rgba(244,191,79,.85),rgba(157,112,255,.6),transparent)}
+#login .card::after{content:"";position:absolute;pointer-events:none;inset:0;border-radius:inherit;background:linear-gradient(125deg,rgba(255,255,255,.05),transparent 34%,transparent 70%,rgba(142,94,255,.06))}
+#login h2{margin:.1em 0 .3em;font-size:1.45rem;letter-spacing:-.02em;color:#faf7ff}
+#login .mu{margin:0 0 20px;color:#c3c8f0;font-size:.9rem}
+#login input[type=text],#login input[type=password]{position:relative;z-index:1;display:block;width:100%;margin:10px 0 0;padding:13px 14px;border-radius:13px!important;border:1px solid rgba(196,186,250,.26)!important;background:rgba(8,10,38,.45);color:#faf8ff;box-shadow:inset 0 1px 2px rgba(0,0,0,.14);transition:border-color .2s,box-shadow .2s,background .2s}
+#login input::placeholder{color:#a3a9d6}
+#login input[type=text]:focus,#login input[type=password]:focus{outline:none;border-color:rgba(244,191,79,.85)!important;background:rgba(10,12,44,.7);box-shadow:0 0 0 3px rgba(244,191,79,.14)}
+#login button{position:relative;z-index:1;width:100%;margin-top:6px;padding:13px 16px;border:1px solid rgba(214,204,255,.34);border-radius:13px;background:linear-gradient(110deg,#4046d4,#6a56ee 55%,#7a4fe0);color:#fff;font-size:.97rem;box-shadow:0 9px 26px rgba(80,70,220,.34),inset 0 1px 0 rgba(255,255,255,.2);transition:transform .18s,box-shadow .18s,filter .18s}
+#login button:hover{filter:brightness(1.1);box-shadow:0 12px 32px rgba(106,86,238,.46),inset 0 1px 0 rgba(255,255,255,.25)}
+#err{min-height:1.5em;margin:10px 0 6px;color:#ffadb9;font-size:.85rem}
+/* Kính tím nhẹ cho các thẻ chính sau khi đăng nhập */
+#main .card{border-color:color-mix(in srgb,var(--pr) 16%,var(--bd));box-shadow:0 8px 28px rgba(19,15,55,.045)}
+#main .card,aside .card{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+@media(max-width:820px){
+  #login{grid-template-columns:minmax(0,1fr);justify-items:center;gap:28px;min-height:0;padding:16px 18px 40px}
+  .lg-hero{display:flex;flex-direction:column;align-items:center;text-align:center}
+  .moon-wrap{width:170px;margin-bottom:26px}
+  #login .card{width:100%;max-width:430px}
+}
+@media(max-width:480px){#login .card{padding:24px 20px 22px;border-radius:21px}}
+@media(prefers-reduced-motion:reduce){.moon-surface{animation:none}#login button,#login input{transition:none}}
 
 /* layout + sidebar */
 #app{display:grid;grid-template-columns:240px 1fr;gap:20px;max-width:1120px;margin:20px auto;padding:0 16px;align-items:start}
@@ -232,13 +263,18 @@ pre{background:var(--bg);padding:12px;border-radius:12px;overflow-x:auto;font-si
 </header>
 
 <div id="login">
+  <section class="lg-hero">
+    <div class="moon-wrap" aria-hidden="true"><div class="moon"><div class="moon-surface"></div></div></div>
+    <span class="lg-eyebrow">Lớp 11B02</span>
+    <h1 class="lg-title">Lunar <span>Homework</span></h1>
+    <p class="lg-sub">Làm bài, theo dõi tiến độ và trò chuyện cùng cả lớp.</p>
+  </section>
   <div class="card">
-    <img class="logo-lg" id="lg2" alt="Logo lớp 11B2">
-    <h2>Nhập tên để vào làm bài</h2>
-    <p class="mu">Nhập đúng họ tên của bạn.</p>
-    <input type="text" id="nm" placeholder="Nhập họ tên của bạn" autocomplete="off">
-    <input type="password" id="pw" placeholder="Mật khẩu quản trị" autocomplete="current-password" hidden style="width:100%;padding:9px 11px;margin-top:8px;border:1px solid var(--bd);border-radius:8px;background:var(--card)">
-    <p id="err" role="alert"></p>
+    <h2>Chào mừng bạn</h2>
+    <p class="mu">Nhập đúng họ tên để vào làm bài.</p>
+    <input type="text" id="nm" placeholder="Họ và tên của bạn" autocomplete="off" aria-label="Họ và tên của bạn">
+    <input type="password" id="pw" placeholder="Mật khẩu quản trị" autocomplete="current-password" hidden>
+    <p id="err" role="alert" aria-live="polite"></p>
     <button onclick="login()">Vào làm bài</button>
   </div>
 </div>
@@ -512,7 +548,7 @@ async function login() {
   chatInit();
 }
 function logout() { (cloud ? firebase.auth().signOut() : Promise.resolve()).catch(() => {}).finally(() => location.reload()); }
-$("lg2").src = $("lg").src;
+if ($("lg2")) $("lg2").src = $("lg").src;
 $("nm").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 $("nm").addEventListener("input", () => { const adm = cloud && isAdminName($("nm").value); if (!adm) { $("pw").hidden = true; $("pw").value = ""; } else $("pw").hidden = false; $("pw").placeholder = "Mật khẩu quản trị"; });
 $("pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
