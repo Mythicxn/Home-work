@@ -106,6 +106,23 @@ div.op{cursor:default}
 .tagrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .bdg{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;font-size:.7rem;font-weight:800;vertical-align:middle;letter-spacing:.03em}
 .bdg.new{background:var(--moon);color:#3a2a00}.bdg.old{background:color-mix(in srgb,var(--mu) 18%,var(--card));color:var(--mu)}.bdg.grp{background:color-mix(in srgb,var(--pr) 14%,var(--card));color:var(--prt)}
+.adm-h{margin:12px 10px 2px;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#a9aee0}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 18px}@media(max-width:560px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{display:block;text-align:left;background:color-mix(in srgb,var(--pr) 6%,var(--card));color:var(--tx);border:1px solid var(--bd);border-radius:16px;padding:12px 16px;font-weight:500}
+.tile b{display:block;font:700 1.6rem var(--hf);color:var(--prt);line-height:1.15}.tile span{color:var(--mu);font-size:.85rem}
+button.tile:hover{border-color:var(--pr);transform:translateY(-1px)}
+.adm-al{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:8px 0;padding:10px 14px;border:1.5px solid var(--no);border-radius:12px;background:var(--nob)}
+.adm-al.w{border-color:var(--moon);background:color-mix(in srgb,var(--moon) 16%,var(--card))}
+.adm-al button{padding:4px 14px}
+details.more{position:relative}details.more>summary{list-style:none;cursor:pointer;padding:9px 16px;border:1.5px solid color-mix(in srgb,var(--prt) 55%,transparent);border-radius:999px;color:var(--prt);font-weight:700;user-select:none}
+details.more>summary::-webkit-details-marker{display:none}
+details.more .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:flex;flex-direction:column;gap:6px;min-width:170px;padding:8px;background:var(--card);border:1px solid var(--bd);border-radius:14px;box-shadow:0 12px 30px rgba(10,12,50,.25)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}@media(max-width:640px){.fgrid{grid-template-columns:1fr}}
+.fgrid label,.fsec>label{display:block;font-weight:600;font-size:.9rem}.fgrid input,.fgrid select,.fsec>label input,.fsec>label textarea{margin-top:4px;font-weight:400}
+.fsec{margin:0 0 12px}.fsec>b{display:block;margin-bottom:6px}
+.fbtn{display:inline-flex;align-items:center;gap:6px;margin:0;padding:9px 18px;border:1.5px solid color-mix(in srgb,var(--prt) 55%,transparent);border-radius:999px;color:var(--prt);font-weight:600;cursor:pointer}
+.savebar{position:sticky;bottom:0;z-index:30;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;padding:10px 14px;background:color-mix(in srgb,var(--card) 94%,transparent);backdrop-filter:blur(6px);border:1px solid var(--bd);border-radius:16px;box-shadow:0 -6px 20px rgba(10,12,50,.12)}
+details.card>summary{cursor:pointer}
 .gchk{display:flex;flex-wrap:wrap;gap:8px}.gchk label{display:inline-flex;align-items:center;gap:6px;margin:0;padding:5px 12px;border:1.5px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);cursor:pointer;font-weight:600;font-size:.88rem}.gchk label:has(input:checked){border-color:var(--pr);background:color-mix(in srgb,var(--pr) 12%,var(--card))}.gchk input{accent-color:var(--pr);margin:0}
 .done{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin-left:8px;border-radius:50%;background:var(--ok);color:#fff;font-size:.8rem;font-weight:800;vertical-align:middle}
 .tg{padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--pr) 12%,var(--card));color:var(--pr);font-size:.78rem;font-weight:700}
@@ -498,7 +515,7 @@ function start() {
       renderSide(); if (S.view === "list") renderMain();
     });
     store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => { const ox = x.order != null, oy = y.order != null; if (ox && oy && x.order !== y.order) return x.order - y.order; if (ox !== oy) return ox ? -1 : 1; return (x.time || 0) - (y.time || 0); }); renderSide(); renderBoard(); if (S.view === "list") renderMain(); });
-    store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); if (S.view === "stats") renderMain(); });
+    store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); if (S.view === "stats") renderMain(); else if (S.admin && S.view === "home") $("main").innerHTML = renderAdminHome(); });
     store.sub("settings", a => {
       S.ai = a.find(x => x.id === "ai") || null;
       S.notice = a.find(x => x.id === "notice") || null; maybeNotice();
@@ -653,7 +670,7 @@ function aiStatus() {
 }
 function renderAiSet() {
   const c = S.ai || {}, p = AI_DEF[c.provider] ? c.provider : "gemini";
-  return `<div class="card"><h2>⚙ Cài đặt AI (dev)</h2>
+  return `<div class="card"><h2>🤖 Cài đặt AI</h2>
     <p class="mu">Trạng thái: <span id="ast">${aiStatus()}</span></p>
     <p><label>Nhà cung cấp<select id="ap" onchange="$('am').value=AI_DEF[this.value].model;$('afm').value=AI_DEF[this.value].fallback">${Object.entries(AI_DEF).map(([k, v]) => `<option value="${k}" ${k === p ? "selected" : ""}>${v.name}</option>`).join("")}</select></label></p>
     <p><label>Model chính<input type="text" id="am" value="${esc(c.model || AI_DEF[p].model)}"></label></p>
@@ -1148,7 +1165,7 @@ async function stopNotice() {
 }
 function renderSettings() {
   const th = getTheme(), chip = (v, lab) => `<button class="chip ${th === v ? "on" : ""}" onclick="setTheme('${v}')">${lab}</button>`;
-  let h = `<div class="card"><h2>Cài đặt</h2><h3>Giao diện</h3><div class="chips">${chip("auto", "🖥 Theo thiết bị")}${chip("light", "☀ Sáng")}${chip("dark", "🌙 Tối")}</div><div class="mu">Lựa chọn được nhớ trên trình duyệt này.</div></div>`;
+  let h = `<div class="card"><h2>${S.admin ? "Cài đặt chung" : "Cài đặt"}</h2><h3>Giao diện</h3><div class="chips">${chip("auto", "🖥 Theo thiết bị")}${chip("light", "☀ Sáng")}${chip("dark", "🌙 Tối")}</div><div class="mu">Lựa chọn được nhớ trên trình duyệt này.</div></div>`;
   if (!S.admin) h += `<div class="card"><h3>Mật khẩu của bạn</h3><div id="pwbox" class="mu">Đang tải…</div></div>`;
   else h += `<div class="card"><h3>Mật khẩu học sinh</h3><p class="mu">Học sinh quên mật khẩu: chọn tên rồi xóa mật khẩu để em ấy đặt lại.</p><div class="row"><select id="rsel" style="max-width:320px">${STUDENTS.map(n => `<option>${esc(n)}</option>`).join("")}</select><button class="d" onclick="resetPw()">Xóa mật khẩu</button></div><p id="rmsg" role="alert"></p></div>` + noticeCard();
   return h;
@@ -1326,18 +1343,47 @@ function renderPwLog() {
 
 function openSub(id) { S.sub = id; S.tag = ""; S.q = ""; go("list"); }
 
+const sideBtn = (v, label, badge) => `<button class="s ${S.view === v ? "on" : ""}" onclick="go('${v}')"><span>${label}</span>${badge !== "" && badge != null ? `<small>${badge}</small>` : ""}</button>`;
 function renderSide() {
-  $("side").innerHTML = `<div class="card">
-    <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
-    (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${visQuizzes().filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
-    (S.admin ? "" : `<hr><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>⚙ Cài đặt</span></button>`) +
-    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s ${S.view === "groups" ? "on" : ""}" onclick="go('groups')"><span>👥 Nhóm học sinh</span><small>${S.groups.length}</small></button><button class="s ${S.view === "pwlog" ? "on" : ""}" onclick="go('pwlog')"><span>🔐 Nhật ký mật khẩu</span><small>${pwUnseen().length ? `<b class="tag-no">${pwUnseen().length} mới</b>` : (pwFlagged().length ? `<b class="tag-no">⚠ ${pwFlagged().length}</b>` : "")}</small></button><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>🎨 Giao diện &amp; mật khẩu HS</span></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+  const inSub = ["list", "take", "edit", "review"].includes(S.view);
+  const subs = S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && inSub ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${visQuizzes().filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`;
+  let adm;
+  if (S.admin) {
+    const nu = pwUnseen().length, nf = pwFlagged().length;
+    adm = `<hr><div class="adm-h">Quản lý</div>` + sideBtn("groups", "👥 Nhóm học sinh", S.groups.length) +
+      `<button class="s" onclick="addSub()"><span>＋ Thêm môn học</span></button>` +
+      `<div class="adm-h">Theo dõi</div>` + sideBtn("stats", "📊 Thống kê") + sideBtn("live", "🟢 Ai đang làm bài", liveActive().length) +
+      sideBtn("pwlog", "🔐 Nhật ký mật khẩu", nu ? `<b class="tag-no">${nu} mới</b>` : (nf ? `<b class="tag-no">⚠ ${nf}</b>` : "")) +
+      `<div class="adm-h">Cài đặt</div>` + sideBtn("aiset", "🤖 Cài đặt AI", aiReady() ? "bật" : "tắt") + sideBtn("settings", "⚙ Cài đặt chung");
+  } else adm = `<hr>` + sideBtn("settings", "⚙ Cài đặt");
+  $("side").innerHTML = `<div class="card">` + sideBtn("home", S.admin ? "🏠 Tổng quan" : "Thông tin") + `<hr>` + subs + adm + `</div>`;
+  if (S.admin && S.view === "home") $("main").innerHTML = renderAdminHome();
 }
+
+/* ===================== TỔNG QUAN CHO QUẢN TRỊ ===================== */
+function quickAdd(id) { S.sub = id; editQuiz(); }
+function renderAdminHome() {
+  const RS = S.results, act = liveActive().length, nu = pwUnseen().length, nf = pwFlagged().length, al = [];
+  if (!cloud) al.push(`<div class="adm-al">Đang ở chế độ thử: dữ liệu chỉ lưu trên máy này. Hãy gắn Firebase trong CONFIG để cả lớp dùng chung.</div>`);
+  if (nf) al.push(`<div class="adm-al">⚠ ${nf} thiết bị nghi đặt mật khẩu cho nhiều tài khoản. <button class="g" onclick="go('pwlog')">Xem ngay</button></div>`);
+  if (nu) al.push(`<div class="adm-al w">🔐 Có ${nu} lượt đặt/đổi mật khẩu mới. <button class="g" onclick="go('pwlog')">Xem nhật ký</button></div>`);
+  if (!aiReady()) al.push(`<div class="adm-al w">🤖 AI chưa bật nên học sinh chưa có nút “Giải thích”. <button class="g" onclick="go('aiset')">Cài đặt AI</button></div>`);
+  const tile = (n, lab, v) => v ? `<button class="tile" onclick="go('${v}')"><b>${n}</b><span>${lab}</span></button>` : `<div class="tile"><b>${n}</b><span>${lab}</span></div>`;
+  const subj = id => (S.subjects.find(s => s.id === id) || {}).name || "";
+  const recent = S.quizzes.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 5);
+  return `<div class="card"><h2>Chào ${esc(S.user)} 👋</h2><p class="mu">Tổng quan quản trị lớp 11B02.</p>${al.join("")}
+    <div class="tiles">${tile(S.subjects.length, "môn học")}${tile(S.quizzes.length, "bài")}${tile(RS.length, "lượt làm bài", "stats")}${tile(act, "đang làm bài", "live")}${tile(S.groups.length, "nhóm học sinh", "groups")}${tile(S.profiles.length + "/" + STUDENTS.length, "HS đã có mật khẩu", "pwlog")}</div>
+    <b>Thêm bài mới vào môn</b><div class="chips" style="margin-top:8px">${S.subjects.map(s => `<button class="chip" onclick="quickAdd('${s.id}')">＋ ${esc(s.name)}</button>`).join("") || `<span class="mu">Chưa có môn học.</span>`}</div></div>
+    <div class="card"><b>Bài đăng gần đây</b>${recent.length ? recent.map(q => { const n = RS.filter(r => r.quizId === q.id).length; return `<div class="row sp" style="padding:8px 0;border-top:1px solid var(--bd);margin-top:8px"><div><b>${esc(q.title)}</b>${grpBadge(q)} <small class="mu">· ${esc(subj(q.subject))} · ${n} lượt làm</small></div><button class="g" onclick="S.sub='${q.subject}';editQuiz('${q.id}')">✏️ Sửa</button></div>`; }).join("") : `<p class="mu">Chưa có bài nào. Chọn một môn ở trên để thêm bài đầu tiên.</p>`}</div>`;
+}
+document.addEventListener("click", e => document.querySelectorAll("details.more[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; }));
 
 function renderMain() {
   const m = $("main"); m.onchange = null; m.oninput = null;
   $("board").hidden = S.view !== "home";
-  if (S.view === "home") {
+  if (S.view === "home" && S.admin) {
+    m.innerHTML = renderAdminHome();
+  } else if (S.view === "home") {
     m.innerHTML = `<div class="card"><h2>Chào ${esc(S.user)}</h2>
       <p>Trang web thuộc quyền sở hữu của lớp 11B02 do Lunar quản lý. Quyền sử dụng chỉ thuộc về lớp 11B02 và các lớp được cho phép. Hãy liên hệ lớp 11B02 nếu muốn được sử dụng.</p>
       <p>Chọn môn học ở thanh bên trái, bấm vào bài rồi làm. Nộp bài xong sẽ có điểm và xem được câu nào đúng, câu nào sai.</p>
@@ -1349,7 +1395,7 @@ function renderMain() {
     if (S.tag && !tags.some(x => tagKey(x.t) === tagKey(S.tag))) S.tag = "";
     const bar = tags.length ? `<div class="chips"><button class="chip ${S.tag ? "" : "on"}" onclick="setTag('')">Tất cả <small>${all.length}</small></button>` + tags.map(x => `<button class="chip ${S.tag && tagKey(S.tag) === tagKey(x.t) ? "on" : ""}" data-t="${esc(x.t)}" onclick="setTag(this.dataset.t)">${esc(x.t)} <small>${x.n}</small></button>`).join("") + `</div>` : "";
     const search = all.length >= 3 ? `<input type="text" id="qs" placeholder="🔍 Tìm bài theo tên hoặc thẻ…" value="${esc(S.q || "")}" oninput="S.q=this.value;$('qlist').innerHTML=qListHtml()" autocomplete="off" style="margin-bottom:12px">` : "";
-    m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">+ Thêm bài</button><button class="g" onclick="renameSub()">Đổi tên môn</button><button class="d" onclick="delSub()">Xóa môn</button></div>` : ""}</div>` + search + bar + `<div id="qlist">${qListHtml()}</div>`;
+    m.innerHTML = `<div class="row sp"><h2>${esc(sub.name)}</h2>${S.admin ? `<div class="row"><button onclick="editQuiz()">＋ Thêm bài</button><details class="more"><summary title="Quản lý môn học">⋯ Môn</summary><div class="menu"><button class="g" onclick="renameSub()">✏️ Đổi tên môn</button><button class="d" onclick="delSub()">🗑 Xóa môn</button></div></details></div>` : ""}</div>` + search + bar + `<div id="qlist">${qListHtml()}</div>`;
   } else if (S.view === "take") {
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.${S.deadline ? ` <b>Kiểm tra ${S.lim} phút, hết giờ tự động nộp bài.</b>` : ""}</div></div>` +
       S.qs.map((q, i) => `<div class="card"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
@@ -1384,22 +1430,34 @@ function renderMain() {
     m.innerHTML = renderSettings(); loadPwBox();
   } else if (S.view === "edit") {
     const q = S.quiz;
-    m.innerHTML = `<div class="card"><h2>${q.id ? "Sửa bài" : "Thêm bài mới"}</h2>
-      <p><label>Tên bài<input type="text" id="et" value="${esc(q.title)}"></label></p>
-      <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
-      <p><label>Thẻ phân loại (cách nhau bằng dấu phẩy)<input type="text" id="etg" list="etgl" value="${esc((q.tags || []).join(", "))}" placeholder="vd: HK1, Bài 1, Ôn tập" autocomplete="off"></label><datalist id="etgl">${allTags().map(x => `<option value="${esc(x.t)}">`).join("")}</datalist>${allTags().length ? `<span class="chips" style="margin:6px 0 0">${allTags().map(x => `<button type="button" class="chip" data-t="${esc(x.t)}" onclick="addTagToInput(this.dataset.t)">+ ${esc(x.t)}</button>`).join("")}</span>` : ""}</p>
-      <p><label>Nhãn Mới/Cũ<select id="est"><option value="" ${!q.st ? "selected" : ""}>Tự động (Mới 3 ngày đầu, Cũ sau 6 ngày)</option><option value="new" ${q.st === "new" ? "selected" : ""}>Luôn là Mới</option><option value="old" ${q.st === "old" ? "selected" : ""}>Luôn là Cũ</option></select></label></p>
-      <div style="margin:0 0 1em"><b>Ai được thấy và làm bài này</b><div style="margin-top:6px">${groupPicker(q)}</div></div>
-      <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
-      <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh &amp; cắt (có ✨ AI gợi ý khung)</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh, bấm nút, chọn ảnh → cửa sổ cắt mở ra: tự kéo khung hoặc bấm “✨ AI gợi ý khung”.</span></p>
-      <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI gõ lại câu hỏi theo từng trang, rồi đề xuất khung cắt hình để bạn chỉnh/duyệt.</span></p>
-      <p class="row"><button type="button" class="g ai-btn" onclick="$('efi').click()">${AI_ICON}<span>Chỉ cắt hình cho đề đã nhập</span></button><input type="file" id="efi" accept="image/*" multiple hidden><span id="efs" class="mu">Nhập chữ đề trước, rồi chọn ảnh chụp: AI chỉ tìm hình và chèn vào đúng câu, không thêm hay sửa câu hỏi.</span></p>
-      <p><label>Nội dung đề<textarea id="ex" oninput="prevQ()">${esc(q.text)}</textarea></label></p>
-      <p id="ep" class="mu"></p>
-      <details id="epvd" ontoggle="prevQ()" class="card"><summary><b>Xem thử 3 câu đầu</b> (hiển thị công thức và ảnh)</summary><div id="epv"></div></details>
-      <div id="eimgs"></div>
-      <div class="row"><button onclick="saveQuiz()">Lưu bài</button><button class="g" onclick="go('list')">Hủy</button></div></div>
-      <div class="card"><b>Cách viết đề</b><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) (hoặc I. II. III. IV.) kết thúc bằng “= Đ” hoặc “= S”. Câu trả lời ngắn: không có A–D, chỉ ghi “Đáp án: 100” (nhiều đáp án chấp nhận thì ngăn cách bằng dấu ;, số thập phân gõ 1,5 hay 1.5 đều được). Đáp án trắc nghiệm có thể ghi chữ (C) hoặc nội dung phương án (“Đáp án: 2”, “Đáp án: Hình 3”). Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.<br><br><b>Công thức:</b> viết trong dấu $...$ (kiểu LaTeX), ví dụ <code>$x^2 + 1$</code>, <code>$\\frac{a}{b}$</code>, <code>$\\sqrt{x}$</code>; dùng <code>$$...$$</code> để công thức nằm riêng một dòng.<br><br><b>Hóa học:</b> viết <code>$\\ce{2H2 + O2 -> 2H2O}$</code> hoặc <code>$\\ce{H2SO4}$</code> để hiện đúng chỉ số dưới và mũi tên. Gõ chữ thường thì <code>-&gt;</code> tự đổi thành →, <code>&lt;=&gt;</code> thành ⇌.</div></div>`;
+    m.innerHTML = `<div class="row sp"><h2>${q.id ? "Sửa bài" : "Thêm bài mới"}</h2><button class="g" onclick="go('list')">← Về danh sách</button></div>
+      <div class="card fsec"><h3>① Thông tin bài</h3>
+        <div class="fgrid">
+          <label>Tên bài<input type="text" id="et" value="${esc(q.title)}"></label>
+          <label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label>
+        </div>
+        <div class="fgrid">
+          <label>Nhãn Mới/Cũ<select id="est"><option value="" ${!q.st ? "selected" : ""}>Tự động (Mới 3 ngày đầu, Cũ sau 6 ngày)</option><option value="new" ${q.st === "new" ? "selected" : ""}>Luôn là Mới</option><option value="old" ${q.st === "old" ? "selected" : ""}>Luôn là Cũ</option></select></label>
+          <label>Thẻ phân loại (cách nhau bằng dấu phẩy)<input type="text" id="etg" list="etgl" value="${esc((q.tags || []).join(", "))}" placeholder="vd: HK1, Bài 1, Ôn tập" autocomplete="off"></label>
+        </div>
+        <datalist id="etgl">${allTags().map(x => `<option value="${esc(x.t)}">`).join("")}</datalist>${allTags().length ? `<span class="chips" style="margin:0 0 12px">${allTags().map(x => `<button type="button" class="chip" data-t="${esc(x.t)}" onclick="addTagToInput(this.dataset.t)">+ ${esc(x.t)}</button>`).join("")}</span>` : ""}
+        <div class="fsec" style="margin:0"><b>Ai được thấy và làm bài này</b>${groupPicker(q)}</div>
+      </div>
+      <div class="card fsec"><h3>② Nội dung đề</h3>
+        <div class="row" style="margin-bottom:6px">
+          <label class="fbtn">📄 Upload file .txt<input type="file" id="ef" accept=".txt,text/plain" hidden></label>
+          <button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh &amp; cắt</button><input type="file" id="ei" accept="image/*" multiple hidden>
+          <button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Ảnh chụp đề → câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden>
+          <button type="button" class="g ai-btn" onclick="$('efi').click()">${AI_ICON}<span>Chỉ cắt hình cho đề</span></button><input type="file" id="efi" accept="image/*" multiple hidden>
+        </div>
+        <div class="mu" style="margin-bottom:10px"><div>🖼 Đặt con trỏ trong ô đề vào chỗ muốn hiện ảnh rồi bấm “Chèn ảnh &amp; cắt”.</div><div><span id="eas">Ảnh chụp đề → câu hỏi: chọn 1–10 ảnh, AI gõ lại câu hỏi và gợi ý khung cắt hình để bạn duyệt.</span></div><div><span id="efs">Chỉ cắt hình: nhập chữ đề trước, rồi chọn ảnh; AI chỉ tìm hình và chèn đúng câu, không sửa câu hỏi.</span></div></div>
+        <label>Nội dung đề<textarea id="ex" rows="14" oninput="prevQ()">${esc(q.text)}</textarea></label>
+        <p id="ep" class="mu"></p>
+        <details id="epvd" ontoggle="prevQ()" class="card"><summary><b>Xem thử 3 câu đầu</b> (hiển thị công thức và ảnh)</summary><div id="epv"></div></details>
+        <div id="eimgs"></div>
+      </div>
+      <details class="card"><summary><b>📖 Cách viết đề</b> <span class="mu">(bấm để xem)</span></summary><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) (hoặc I. II. III. IV.) kết thúc bằng “= Đ” hoặc “= S”. Câu trả lời ngắn: không có A–D, chỉ ghi “Đáp án: 100” (nhiều đáp án chấp nhận thì ngăn cách bằng dấu ;, số thập phân gõ 1,5 hay 1.5 đều được). Đáp án trắc nghiệm có thể ghi chữ (C) hoặc nội dung phương án (“Đáp án: 2”, “Đáp án: Hình 3”). Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.<br><br><b>Công thức:</b> viết trong dấu $...$ (kiểu LaTeX), ví dụ <code>$x^2 + 1$</code>, <code>$\\frac{a}{b}$</code>, <code>$\\sqrt{x}$</code>; dùng <code>$$...$$</code> để công thức nằm riêng một dòng.<br><br><b>Hóa học:</b> viết <code>$\\ce{2H2 + O2 -> 2H2O}$</code> hoặc <code>$\\ce{H2SO4}$</code> để hiện đúng chỉ số dưới và mũi tên. Gõ chữ thường thì <code>-&gt;</code> tự đổi thành →, <code>&lt;=&gt;</code> thành ⇌.</div></details>
+      <div class="savebar"><button onclick="saveQuiz()">💾 Lưu bài</button><button class="g" onclick="go('list')">Hủy</button></div>`;
     $("ef").onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $("ex").value = r.result; if (!$("et").value) $("et").value = f.name.replace(/\.txt$/i, ""); prevQ(); }; r.readAsText(f, "utf-8"); } };
     $("ei").onchange = async e => {
       for (const f of [...e.target.files]) { const r = await cropFile(f); if (!r) continue; const id = newImgId(); S.quiz.imgs[ikey(id)] = r; insertAtCursor(`[ảnh:${id}]`); }
@@ -1557,6 +1615,12 @@ function bestScores() {
   S.results.forEach(r => { if (r.quizId && norm(r.name || "") === me && !(m[r.quizId] >= r.score)) m[r.quizId] = r.score; });
   return m;
 }
+function admStat(q) {
+  if (!S.admin) return "";
+  const rs = S.results.filter(r => r.quizId === q.id); if (!rs.length) return " · chưa ai làm";
+  const who = new Set(rs.map(r => r.name)).size, avg = rs.reduce((s, r) => s + r.score, 0) / rs.length;
+  return ` · ${rs.length} lượt · ${who}/${STUDENTS.length} HS · TB ${String(Math.round(avg * 10) / 10).replace(".", ",")}`;
+}
 function qListHtml() {
   const sub = S.subjects.find(x => x.id === S.sub); if (!sub) return "";
   const all = sortedQuizzes(sub.id), k = norm(S.q || ""), best = bestScores();
@@ -1567,9 +1631,9 @@ function qListHtml() {
     const d = loadDraft(q), i = all.indexOf(q), st = qStatus(q);
     const tg = (q.tags || []).length ? `<div class="tagrow">${q.tags.map(t => `<button class="tg" style="border:0;cursor:pointer" data-t="${esc(t)}" onclick="setTag(this.dataset.t)">${esc(t)}</button>`).join("")}</div>` : "";
     const mv = canMove ? `<button class="g" title="Đưa lên" onclick="moveQuiz('${q.id}',-1)" ${i === 0 || qStatus(all[i - 1]) !== st ? "disabled" : ""}>▲</button><button class="g" title="Đưa xuống" onclick="moveQuiz('${q.id}',1)" ${i === all.length - 1 || qStatus(all[i + 1]) !== st ? "disabled" : ""}>▼</button>` : "";
-    const go1 = d ? `<button onclick="take('${q.id}','resume')">Tiếp tục</button><button class="g" onclick="pick('${q.id}')">Làm lại</button>` : `<button onclick="pick('${q.id}')">Làm bài</button>`;
-    return `<div class="card row sp"><div><b>${esc(q.title)}</b>${grpBadge(q)}${st === "new" ? `<span class="bdg new">MỚI</span>` : st === "old" ? `<span class="bdg old">Cũ</span>` : ""}${best[q.id] >= 8 ? `<span class="done" title="Đã đạt từ 8 điểm trở lên (cao nhất: ${String(best[q.id]).replace(".", ",")})">✓</span>` : ""}<div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)${d.dl ? ` · ⏱ kiểm tra ${d.lim}p, ${d.dl > Date.now() ? "còn " + Math.ceil((d.dl - Date.now()) / 60000) + " phút" : "đã hết giờ"}` : ""}</span>` : ""}</div>${tg}</div>
-      <div class="row">${mv}${go1}${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
+    const go1 = d ? `<button onclick="take('${q.id}','resume')">Tiếp tục</button><button class="g" onclick="pick('${q.id}')">Làm lại</button>` : `<button ${S.admin ? 'class="g"' : ""} onclick="pick('${q.id}')">${S.admin ? "Làm thử" : "Làm bài"}</button>`;
+    return `<div class="card row sp"><div><b>${esc(q.title)}</b>${grpBadge(q)}${st === "new" ? `<span class="bdg new">MỚI</span>` : st === "old" ? `<span class="bdg old">Cũ</span>` : ""}${best[q.id] >= 8 ? `<span class="done" title="Đã đạt từ 8 điểm trở lên (cao nhất: ${String(best[q.id]).replace(".", ",")})">✓</span>` : ""}<div class="mu">${nQ(q)} câu${admStat(q)}${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)${d.dl ? ` · ⏱ kiểm tra ${d.lim}p, ${d.dl > Date.now() ? "còn " + Math.ceil((d.dl - Date.now()) / 60000) + " phút" : "đã hết giờ"}` : ""}</span>` : ""}</div>${tg}</div>
+      <div class="row">${S.admin ? `<button onclick="editQuiz('${q.id}')">✏️ Sửa</button>` : ""}${mv}${go1}${S.admin ? `<button class="d" title="Xóa bài" aria-label="Xóa bài" onclick="delQuiz('${q.id}')">🗑</button>` : ""}</div></div>`;
   }).join("");
 }
 function moveQuiz(id, dir) {
