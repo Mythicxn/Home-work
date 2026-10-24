@@ -105,7 +105,8 @@ div.op{cursor:default}
 .chip.on{border-color:var(--pr);background:var(--pr);color:#fff}
 .tagrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .bdg{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;font-size:.7rem;font-weight:800;vertical-align:middle;letter-spacing:.03em}
-.bdg.new{background:var(--moon);color:#3a2a00}.bdg.old{background:color-mix(in srgb,var(--mu) 18%,var(--card));color:var(--mu)}
+.bdg.new{background:var(--moon);color:#3a2a00}.bdg.old{background:color-mix(in srgb,var(--mu) 18%,var(--card));color:var(--mu)}.bdg.grp{background:color-mix(in srgb,var(--pr) 14%,var(--card));color:var(--prt)}
+.gchk{display:flex;flex-wrap:wrap;gap:8px}.gchk label{display:inline-flex;align-items:center;gap:6px;margin:0;padding:5px 12px;border:1.5px solid var(--bd);border-radius:999px;background:var(--card);color:var(--tx);cursor:pointer;font-weight:600;font-size:.88rem}.gchk label:has(input:checked){border-color:var(--pr);background:color-mix(in srgb,var(--pr) 12%,var(--card))}.gchk input{accent-color:var(--pr);margin:0}
 .done{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin-left:8px;border-radius:50%;background:var(--ok);color:#fff;font-size:.8rem;font-weight:800;vertical-align:middle}
 .tg{padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--pr) 12%,var(--card));color:var(--pr);font-size:.78rem;font-weight:700}
 .st .tf-options{display:grid;grid-template-columns:104px 104px;gap:12px;justify-content:end}
@@ -432,7 +433,7 @@ const IMG_LIMIT = 900000;
 function imgBytes(text) { return tokensOf(text).reduce((n, id) => n + ((S.quiz.imgs[ikey(id)] || "").length), 0); }
 
 /* ===================== TRẠNG THÁI ===================== */
-const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", pwlog: [], pwlogErr: "", pwlogReady: false, profiles: [], profilesReady: false, profilesErr: "", pwFilter: "has", ai: null, aiCache: {}, aiBusy: {} };
+const S = { user: null, admin: false, sub: null, view: "home", quiz: null, qs: [], A: {}, subjects: [], quizzes: [], results: [], onlyWrong: false, started: false, seeded: false, live: [], liveErr: "", pwlog: [], pwlogErr: "", pwlogReady: false, profiles: [], profilesReady: false, profilesErr: "", pwFilter: "has", ai: null, aiCache: {}, aiBusy: {}, groups: [], groupsReady: false, groupsErr: "" };
 
 const pkey = n => norm(n).replace(/\s+/g, "_");
 async function pwHash(name, pw) {
@@ -485,12 +486,18 @@ $("pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 function start() {
   if (!S.started) {
     S.started = true;
+    store.sub("groups", a => {
+      S.groups = a.sort((x, y) => (x.o || 0) - (y.o || 0)); S.groupsReady = true; S.groupsErr = "";
+      renderSide(); renderBoard();
+      if (S.view === "list") renderMain();
+      else if (S.view === "groups") { const y = window.scrollY; renderMain(); window.scrollTo(0, y); }
+    }, e => { S.groupsReady = false; S.groupsErr = e.message || String(e); console.warn("groups", e); renderSide(); renderBoard(); if (S.view === "list" || S.view === "groups") renderMain(); });
     store.sub("subjects", a => {
       S.subjects = a.sort((x, y) => (x.o || 0) - (y.o || 0));
       if (S.admin && !a.length && !S.seeded) { S.seeded = true; DEFAULT_SUBJECTS.forEach((n, i) => store.put("subjects", { id: uid(), name: n, o: i })); }
       renderSide(); if (S.view === "list") renderMain();
     });
-    store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => { const ox = x.order != null, oy = y.order != null; if (ox && oy && x.order !== y.order) return x.order - y.order; if (ox !== oy) return ox ? -1 : 1; return (x.time || 0) - (y.time || 0); }); renderSide(); if (S.view === "list") renderMain(); });
+    store.sub("quizzes", a => { S.quizzes = a.sort((x, y) => { const ox = x.order != null, oy = y.order != null; if (ox && oy && x.order !== y.order) return x.order - y.order; if (ox !== oy) return ox ? -1 : 1; return (x.time || 0) - (y.time || 0); }); renderSide(); renderBoard(); if (S.view === "list") renderMain(); });
     store.sub("results", a => { S.results = a.sort((x, y) => y.time - x.time); renderBoard(); if (S.view === "stats") renderMain(); });
     store.sub("settings", a => {
       S.ai = a.find(x => x.id === "ai") || null;
@@ -1322,9 +1329,9 @@ function openSub(id) { S.sub = id; S.tag = ""; S.q = ""; go("list"); }
 function renderSide() {
   $("side").innerHTML = `<div class="card">
     <button class="s ${S.view === "home" ? "on" : ""}" onclick="go('home')">Thông tin</button><hr>` +
-    (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${S.quizzes.filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
+    (S.subjects.length ? S.subjects.map(s => `<button class="s ${S.sub === s.id && S.view !== "home" ? "on" : ""}" onclick="openSub('${s.id}')"><span>${esc(s.name)}</span><small>${visQuizzes().filter(q => q.subject === s.id).length}</small></button>`).join("") : `<p class="mu" style="padding:6px 12px">Chưa có môn học.</p>`) +
     (S.admin ? "" : `<hr><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>⚙ Cài đặt</span></button>`) +
-    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s ${S.view === "pwlog" ? "on" : ""}" onclick="go('pwlog')"><span>🔐 Nhật ký mật khẩu</span><small>${pwUnseen().length ? `<b class="tag-no">${pwUnseen().length} mới</b>` : (pwFlagged().length ? `<b class="tag-no">⚠ ${pwFlagged().length}</b>` : "")}</small></button><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>🎨 Giao diện &amp; mật khẩu HS</span></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
+    (S.admin ? `<hr><button class="s ${S.view === "stats" ? "on" : ""}" onclick="go('stats')"><span>📊 Thống kê</span></button><button class="s ${S.view === "live" ? "on" : ""}" onclick="go('live')"><span>✓ Ai đang làm bài</span><small>${liveActive().length}</small></button><button class="s ${S.view === "aiset" ? "on" : ""}" onclick="go('aiset')"><span>⚙ Cài đặt AI</span><small>${aiReady() ? "bật" : "tắt"}</small></button><button class="s ${S.view === "groups" ? "on" : ""}" onclick="go('groups')"><span>👥 Nhóm học sinh</span><small>${S.groups.length}</small></button><button class="s ${S.view === "pwlog" ? "on" : ""}" onclick="go('pwlog')"><span>🔐 Nhật ký mật khẩu</span><small>${pwUnseen().length ? `<b class="tag-no">${pwUnseen().length} mới</b>` : (pwFlagged().length ? `<b class="tag-no">⚠ ${pwFlagged().length}</b>` : "")}</small></button><button class="s ${S.view === "settings" ? "on" : ""}" onclick="go('settings')"><span>🎨 Giao diện &amp; mật khẩu HS</span></button><button class="s" onclick="addSub()">+ Thêm môn học</button>` : "") + `</div>`;
 }
 
 function renderMain() {
@@ -1338,7 +1345,7 @@ function renderMain() {
   } else if (S.view === "list") {
     const sub = S.subjects.find(s => s.id === S.sub);
     if (!sub) return go("home");
-    const all = S.quizzes.filter(q => q.subject === sub.id), tags = allTags(sub.id);
+    const all = visQuizzes().filter(q => q.subject === sub.id), tags = allTags(sub.id);
     if (S.tag && !tags.some(x => tagKey(x.t) === tagKey(S.tag))) S.tag = "";
     const bar = tags.length ? `<div class="chips"><button class="chip ${S.tag ? "" : "on"}" onclick="setTag('')">Tất cả <small>${all.length}</small></button>` + tags.map(x => `<button class="chip ${S.tag && tagKey(S.tag) === tagKey(x.t) ? "on" : ""}" data-t="${esc(x.t)}" onclick="setTag(this.dataset.t)">${esc(x.t)} <small>${x.n}</small></button>`).join("") + `</div>` : "";
     const search = all.length >= 3 ? `<input type="text" id="qs" placeholder="🔍 Tìm bài theo tên hoặc thẻ…" value="${esc(S.q || "")}" oninput="S.q=this.value;$('qlist').innerHTML=qListHtml()" autocomplete="off" style="margin-bottom:12px">` : "";
@@ -1367,6 +1374,9 @@ function renderMain() {
   } else if (S.view === "pwlog") {
     if (!S.admin) return go("home");
     m.innerHTML = renderPwLog();
+  } else if (S.view === "groups") {
+    if (!S.admin) return go("home");
+    m.innerHTML = renderGroups();
   } else if (S.view === "aiset") {
     if (!S.admin) return go("home");
     m.innerHTML = renderAiSet();
@@ -1379,6 +1389,7 @@ function renderMain() {
       <p><label>Môn học<select id="es">${S.subjects.map(s => `<option value="${s.id}" ${s.id === q.subject ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label></p>
       <p><label>Thẻ phân loại (cách nhau bằng dấu phẩy)<input type="text" id="etg" list="etgl" value="${esc((q.tags || []).join(", "))}" placeholder="vd: HK1, Bài 1, Ôn tập" autocomplete="off"></label><datalist id="etgl">${allTags().map(x => `<option value="${esc(x.t)}">`).join("")}</datalist>${allTags().length ? `<span class="chips" style="margin:6px 0 0">${allTags().map(x => `<button type="button" class="chip" data-t="${esc(x.t)}" onclick="addTagToInput(this.dataset.t)">+ ${esc(x.t)}</button>`).join("")}</span>` : ""}</p>
       <p><label>Nhãn Mới/Cũ<select id="est"><option value="" ${!q.st ? "selected" : ""}>Tự động (Mới 3 ngày đầu, Cũ sau 6 ngày)</option><option value="new" ${q.st === "new" ? "selected" : ""}>Luôn là Mới</option><option value="old" ${q.st === "old" ? "selected" : ""}>Luôn là Cũ</option></select></label></p>
+      <div style="margin:0 0 1em"><b>Ai được thấy và làm bài này</b><div style="margin-top:6px">${groupPicker(q)}</div></div>
       <p><label>Upload file .txt <input type="file" id="ef" accept=".txt,text/plain"></label></p>
       <p class="row"><button type="button" class="g" onclick="$('ei').click()">🖼 Chèn ảnh &amp; cắt (có ✨ AI gợi ý khung)</button><input type="file" id="ei" accept="image/*" multiple hidden><span class="mu">Đặt con trỏ vào chỗ muốn hiện ảnh, bấm nút, chọn ảnh → cửa sổ cắt mở ra: tự kéo khung hoặc bấm “✨ AI gợi ý khung”.</span></p>
       <p class="row"><button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Chuyển ảnh chụp đề thành câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden><span id="eas" class="mu">Chọn 1–10 ảnh chụp trang đề; AI gõ lại câu hỏi theo từng trang, rồi đề xuất khung cắt hình để bạn chỉnh/duyệt.</span></p>
@@ -1424,8 +1435,8 @@ function reviewQ(q, i) {
 }
 
 function renderBoard() {
-  const rows = S.results.slice(0, 300);
-  $("board").innerHTML = `<h3>Bảng kết quả${S.results.length ? ` <small class="mu">(${S.results.length} lượt · cuộn để xem thêm)</small>` : ""}</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th>Rời tab</th><th></th>" : ""}</tr>` +
+  const hid = new Set(S.quizzes.filter(q => !canSee(q)).map(q => q.id)), res = S.results.filter(r => !hid.has(r.quizId)), rows = res.slice(0, 300);
+  $("board").innerHTML = `<h3>Bảng kết quả${res.length ? ` <small class="mu">(${res.length} lượt · cuộn để xem thêm)</small>` : ""}</h3>` + (rows.length ? `<div class="tw"><table><tr><th>#</th><th>Người làm</th><th>Bài</th><th>Điểm</th><th>Lúc</th>${S.admin ? "<th>Rời tab</th><th></th>" : ""}</tr>` +
     rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.quiz)}${r.mode === "test" ? ` <small class="mu">· KT ${r.lim}p${r.tu ? " (hết giờ)" : ""}</small>` : ""}</td><td><b>${r.score}</b>/10</td><td>${new Date(r.time).toLocaleString("vi-VN")}</td>${S.admin ? `<td>${r.sw ? `<span class="tag-no">${r.sw}</span>` : "0"}</td><td><button class="d" onclick="delRes('${r.id}')">Xóa</button></td>` : ""}</tr>`).join("") + `</table></div>` : `<p class="mu">Chưa có ai làm bài.</p>`);
 }
 
@@ -1478,7 +1489,7 @@ setInterval(tick, 1000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
 function take(id, how, kind, min) {
   S.quiz = S.quizzes.find(q => q.id === id);
-  if (!S.quiz) return go("list");
+  if (!S.quiz || !canSee(S.quiz)) { S.quiz = null; return go("list"); }
   const d = how === "resume" ? loadDraft() : null;
   if (d) { S.qs = d.qs; S.A = d.A; S.sw = d.sw || 0; S.mode = d.mode === "test" ? "test" : "practice"; S.lim = d.lim || 0; S.deadline = d.dl || 0; }
   else {
@@ -1526,7 +1537,7 @@ function setTag(t) { S.tag = S.tag && tagKey(S.tag) === tagKey(t) ? "" : t; rend
 function addTagToInput(t) { const el = $("etg"); if (!el) return; const cur = parseTags(el.value); if (!cur.some(x => tagKey(x) === tagKey(t))) cur.push(t); el.value = cur.join(", "); }
 function allTags(subjectId) {
   const m = new Map();
-  S.quizzes.filter(q => !subjectId || q.subject === subjectId).forEach(q => (q.tags || []).forEach(t => { const k = tagKey(t); if (!m.has(k)) m.set(k, { t, n: 0 }); m.get(k).n++; }));
+  visQuizzes().filter(q => !subjectId || q.subject === subjectId).forEach(q => (q.tags || []).forEach(t => { const k = tagKey(t); if (!m.has(k)) m.set(k, { t, n: 0 }); m.get(k).n++; }));
   return [...m.values()].sort((a, b) => a.t.localeCompare(b.t, "vi", { numeric: true }));
 }
 const NC = {};
@@ -1538,7 +1549,7 @@ function qStatus(q) {
   return d < NEW_DAYS ? "new" : d >= OLD_DAYS ? "old" : "";
 }
 function sortedQuizzes(subjectId) {
-  return S.quizzes.filter(q => q.subject === subjectId).map((q, i) => [q, i])
+  return visQuizzes().filter(q => q.subject === subjectId).map((q, i) => [q, i])
     .sort((a, b) => ST_RANK[qStatus(a[0])] - ST_RANK[qStatus(b[0])] || a[1] - b[1]).map(x => x[0]);
 }
 function bestScores() {
@@ -1557,7 +1568,7 @@ function qListHtml() {
     const tg = (q.tags || []).length ? `<div class="tagrow">${q.tags.map(t => `<button class="tg" style="border:0;cursor:pointer" data-t="${esc(t)}" onclick="setTag(this.dataset.t)">${esc(t)}</button>`).join("")}</div>` : "";
     const mv = canMove ? `<button class="g" title="Đưa lên" onclick="moveQuiz('${q.id}',-1)" ${i === 0 || qStatus(all[i - 1]) !== st ? "disabled" : ""}>▲</button><button class="g" title="Đưa xuống" onclick="moveQuiz('${q.id}',1)" ${i === all.length - 1 || qStatus(all[i + 1]) !== st ? "disabled" : ""}>▼</button>` : "";
     const go1 = d ? `<button onclick="take('${q.id}','resume')">Tiếp tục</button><button class="g" onclick="pick('${q.id}')">Làm lại</button>` : `<button onclick="pick('${q.id}')">Làm bài</button>`;
-    return `<div class="card row sp"><div><b>${esc(q.title)}</b>${st === "new" ? `<span class="bdg new">MỚI</span>` : st === "old" ? `<span class="bdg old">Cũ</span>` : ""}${best[q.id] >= 8 ? `<span class="done" title="Đã đạt từ 8 điểm trở lên (cao nhất: ${String(best[q.id]).replace(".", ",")})">✓</span>` : ""}<div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)${d.dl ? ` · ⏱ kiểm tra ${d.lim}p, ${d.dl > Date.now() ? "còn " + Math.ceil((d.dl - Date.now()) / 60000) + " phút" : "đã hết giờ"}` : ""}</span>` : ""}</div>${tg}</div>
+    return `<div class="card row sp"><div><b>${esc(q.title)}</b>${grpBadge(q)}${st === "new" ? `<span class="bdg new">MỚI</span>` : st === "old" ? `<span class="bdg old">Cũ</span>` : ""}${best[q.id] >= 8 ? `<span class="done" title="Đã đạt từ 8 điểm trở lên (cao nhất: ${String(best[q.id]).replace(".", ",")})">✓</span>` : ""}<div class="mu">${nQ(q)} câu${d ? ` · <span class="tag-ok">⏸ đang làm dở (${Object.keys(d.A).length} ý/câu đã chọn)${d.dl ? ` · ⏱ kiểm tra ${d.lim}p, ${d.dl > Date.now() ? "còn " + Math.ceil((d.dl - Date.now()) / 60000) + " phút" : "đã hết giờ"}` : ""}</span>` : ""}</div>${tg}</div>
       <div class="row">${mv}${go1}${S.admin ? `<button class="g" onclick="editQuiz('${q.id}')">Sửa</button><button class="d" onclick="delQuiz('${q.id}')">Xóa</button>` : ""}</div></div>`;
   }).join("");
 }
@@ -1619,15 +1630,70 @@ async function saveQuiz() {
     if (!sh) return alert("Ảnh quá nhiều: dù đã nén tối đa vẫn vượt " + Math.round(budget / 1024) + " KB. Hãy bớt ảnh hoặc dùng link ảnh [ảnh:https://...].");
     imgs = sh.imgs; alert("Ảnh vượt dung lượng nên app đã tự nén: " + Math.round(sh.before / 1024) + " KB → " + Math.round(sh.after / 1024) + " KB.");
   }
+  const gEls = document.querySelectorAll(".egrp");
+  const groups = gEls.length ? [...gEls].filter(x => x.checked).map(x => x.value) : grpOf(S.quiz); // chưa tải nhóm → giữ nguyên, không vô tình mở cho cả lớp
   const newSub = $("es").value; let order = null;
   if (S.quiz.id && S.quiz.subject === newSub) order = S.quiz.order != null ? S.quiz.order : null;
   else { const os = S.quizzes.filter(q => q.subject === newSub && q.order != null).map(q => q.order); if (os.length) order = Math.max(...os) + 10; }
   S.sub = newSub;
-  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, imgs, tags: parseTags($("etg").value), st: $("est").value, order, time: S.quiz.time || Date.now() })
+  store.put("quizzes", { id: S.quiz.id || uid(), subject: S.sub, title, text, imgs, tags: parseTags($("etg").value), st: $("est").value, groups, order, time: S.quiz.time || Date.now() })
     .then(() => go("list")).catch(e => alert("Lưu thất bại: " + e.message));
 }
 function delQuiz(id) { if (confirm("Xóa bài này?")) store.del("quizzes", id); }
 function delRes(id) { if (confirm("Xóa dòng kết quả này?")) store.del("results", id); }
+
+/* ===================== NHÓM: AI ĐƯỢC THẤY & LÀM BÀI ===================== */
+// Bài có groups = [] (hoặc không có) → cả lớp thấy. Bài gắn nhóm → chỉ thành viên các nhóm đó (và quản trị) thấy, làm được.
+const grpOf = q => (q && Array.isArray(q.groups)) ? q.groups : [];
+const inGroup = (g, name) => { const k = norm(name || ""); return (g.members || []).some(m => norm(m) === k); };
+function canSee(q) {
+  if (S.admin) return true;
+  const gs = grpOf(q); if (!gs.length) return true;
+  if (!S.groupsReady) return false; // chưa đọc được danh sách nhóm → ẩn bài hạn chế cho an toàn
+  return gs.some(id => { const g = S.groups.find(x => x.id === id); return !!g && inGroup(g, S.user); });
+}
+const visQuizzes = () => S.quizzes.filter(canSee);
+function grpBadge(q) {
+  const gs = grpOf(q); if (!S.admin || !gs.length) return "";
+  const names = gs.map(id => { const g = S.groups.find(x => x.id === id); return g ? g.name : "(nhóm đã xóa)"; }).join(", ");
+  return `<span class="bdg grp" title="Chỉ các nhóm này thấy và làm được bài">🔒 ${esc(names)}</span>`;
+}
+function groupPicker(q) {
+  if (!S.groups.length) return `<span class="mu">Chưa có nhóm nào nên bài này cả lớp đều thấy. Tạo nhóm ở mục “👥 Nhóm học sinh” bên trái.</span>`;
+  const cur = grpOf(q);
+  return `<div class="gchk">${S.groups.map(g => `<label><input type="checkbox" class="egrp" value="${g.id}" ${cur.includes(g.id) ? "checked" : ""}>${esc(g.name)} <small class="mu">${(g.members || []).length}</small></label>`).join("")}</div><div class="mu" style="margin-top:6px">Không chọn nhóm nào = cả lớp đều thấy. Chọn nhóm = chỉ thành viên các nhóm đó thấy và làm được bài.</div>`;
+}
+function renderGroups() {
+  return `<div class="card"><h2>👥 Nhóm học sinh</h2>
+    <p class="mu">Tạo nhóm, tick học sinh vào nhóm, rồi gắn nhóm cho từng bài (nút “Sửa” bài → “Ai được thấy và làm bài này”). Bài không gắn nhóm thì cả lớp đều thấy.</p>
+    ${S.groupsErr ? `<p class="tag-no">Không đọc được nhóm: ${esc(S.groupsErr)}. Hãy thêm <code>groups</code> vào Firestore Rules rồi Publish.</p>` : ""}
+    <div class="row"><input type="text" id="gnew" placeholder="Tên nhóm mới, vd: Nhóm 1, Đội tuyển Toán" maxlength="60" autocomplete="off" style="max-width:360px" onkeydown="if(event.key==='Enter')addGroup()"><button onclick="addGroup()">+ Tạo nhóm</button></div></div>` +
+  (S.groups.length ? S.groups.map(g => `<div class="card"><div class="row sp"><h3 style="margin:0">${esc(g.name)} <small class="mu">· ${(g.members || []).length}/${STUDENTS.length} học sinh · ${S.quizzes.filter(q => grpOf(q).includes(g.id)).length} bài</small></h3><div class="row"><button class="g" onclick="renameGroup('${g.id}')">Đổi tên</button><button class="d" onclick="delGroup('${g.id}')">Xóa nhóm</button></div></div>
+    <div class="row" style="margin:10px 0"><button class="g" onclick="grpAll('${g.id}',true)">Chọn cả lớp</button><button class="g" onclick="grpAll('${g.id}',false)">Bỏ chọn hết</button></div>
+    <div class="gchk">${STUDENTS.map(n => `<label><input type="checkbox" ${inGroup(g, n) ? "checked" : ""} data-g="${g.id}" data-n="${esc(n)}" onchange="grpToggle(this)">${esc(n)}</label>`).join("")}</div></div>`).join("") : `<div class="card mu">Chưa có nhóm nào.</div>`);
+}
+function addGroup() {
+  const el = $("gnew"), n = el.value.trim(); if (!n) return el.focus();
+  if (S.groups.some(g => norm(g.name) === norm(n))) return alert("Đã có nhóm tên này.");
+  store.put("groups", { id: uid(), name: n, members: [], o: Date.now() }).catch(e => alert("Không lưu được: " + (e.message || e) + "\nKiểm tra Firestore Rules cho “groups”."));
+}
+function renameGroup(id) {
+  const g = S.groups.find(x => x.id === id); if (!g) return;
+  const n = prompt("Tên nhóm:", g.name); if (n && n.trim()) store.patch("groups", id, { name: n.trim() }).catch(e => alert("Không lưu được: " + (e.message || e)));
+}
+function delGroup(id) {
+  const g = S.groups.find(x => x.id === id); if (!g) return;
+  const qs = S.quizzes.filter(q => grpOf(q).includes(id)), only = qs.filter(q => grpOf(q).length === 1);
+  if (!confirm(`Xóa nhóm “${g.name}”?` + (only.length ? `\n\n${only.length} bài chỉ thuộc nhóm này sẽ trở thành bài CẢ LỚP đều thấy.` : ""))) return;
+  qs.forEach(q => store.patch("quizzes", q.id, { groups: grpOf(q).filter(x => x !== id) }));
+  store.del("groups", id);
+}
+function grpToggle(el) {
+  const g = S.groups.find(x => x.id === el.dataset.g); if (!g) return;
+  const set = new Set(g.members || []); if (el.checked) set.add(el.dataset.n); else set.delete(el.dataset.n);
+  store.patch("groups", g.id, { members: STUDENTS.filter(n => set.has(n)) }).catch(e => { alert("Không lưu được: " + (e.message || e)); renderMain(); });
+}
+function grpAll(id, on) { store.patch("groups", id, { members: on ? STUDENTS.slice() : [] }).catch(e => alert("Không lưu được: " + (e.message || e))); }
 
 /* ===================== CHAT RIÊNG GIỮA CÁC BẠN ===================== */
 // Collection "presence": mỗi người 1 doc báo "còn online". Collection "dm": tin nhắn, members = [khóa 2 người].
@@ -1641,7 +1707,7 @@ const chReadKey = k => "lh_cr_" + CH.me + "_" + k;
 const chRead = k => { try { return +localStorage.getItem(chReadKey(k)) || 0; } catch (e) { return 0; } };
 const chMark = k => { const t = CH.dm.reduce((m, x) => x.from === k ? Math.max(m, x.t || 0) : m, 0); try { if (t) localStorage.setItem(chReadKey(k), String(t)); } catch (e) {} };
 const chMsgs = k => CH.dm.filter(m => (m.members || []).includes(k)).sort((a, b) => (a.t || 0) - (b.t || 0));
-const chUnread = k => CH.dm.filter(m => m.from === k && (m.t || 0) > chRead(k)).length;
+const chUnread = k => k === CH.me ? 0 : CH.dm.filter(m => m.from === k && (m.t || 0) > chRead(k)).length;
 function chBeat(off) {
   try { Promise.resolve(store.put("presence", { id: "p_" + CH.me, name: S.user, last: off ? 0 : Date.now() })).catch(() => {}); } catch (e) {}
 }
@@ -1662,7 +1728,7 @@ function chatInit() {
   $("cin").addEventListener("keydown", e => { if (e.key === "Enter") chatSend(); });
 }
 function chBadge() {
-  const n = [CONFIG.ADMIN].concat(STUDENTS).reduce((c, x) => c + chUnread(pkey(x)), 0), b = $("cbg");
+  const n = [CONFIG.ADMIN].concat(STUDENTS).map(pkey).filter(k => k !== CH.me).reduce((c, k) => c + chUnread(k), 0), b = $("cbg");
   b.hidden = !n; b.textContent = n > 99 ? "99+" : n;
 }
 function chatToggle(v) {
