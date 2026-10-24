@@ -94,6 +94,43 @@ body:has(#login:not([hidden])) header{background:transparent}
 @media(max-width:480px){#login .card{padding:24px 20px 22px;border-radius:21px}}
 @media(prefers-reduced-motion:reduce){.moon-surface{animation:none}#login button,#login input{transition:none}}
 
+/* Violet Glass dashboard refresh — giữ màu xanh đêm, vàng trăng và cấu trúc cũ */
+body:has(#app:not([hidden])){background:var(--stars),radial-gradient(ellipse at 82% 8%,rgba(111,64,218,.16),transparent 34%),radial-gradient(ellipse at 8% 70%,rgba(69,63,170,.10),transparent 40%),var(--bg);background-attachment:fixed}
+#app{max-width:1280px;grid-template-columns:248px minmax(0,1fr);gap:22px;margin:24px auto;padding:0 20px}
+#main{min-width:0}
+#main .card, #board.card{position:relative;border:1px solid color-mix(in srgb,var(--prt) 15%,var(--bd));border-radius:20px;background:color-mix(in srgb,var(--card) 82%,transparent);box-shadow:0 12px 32px rgba(19,15,55,.075),inset 0 1px 0 rgba(255,255,255,.28);backdrop-filter:blur(14px) saturate(125%);-webkit-backdrop-filter:blur(14px) saturate(125%);transition:border-color .18s,box-shadow .18s}
+#main .card:hover{border-color:color-mix(in srgb,var(--pr) 28%,var(--bd));box-shadow:0 14px 36px rgba(34,20,90,.10),inset 0 1px 0 rgba(255,255,255,.32)}
+#main .home-hero{overflow:hidden;padding:24px 26px 22px;border-color:rgba(174,143,255,.34);background:linear-gradient(125deg,rgba(91,62,167,.13),transparent 54%),color-mix(in srgb,var(--card) 78%,transparent)}
+#main .home-hero:before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:3px;border-radius:0 4px 4px 0;background:linear-gradient(180deg,#b69aff,var(--moon));opacity:.95}
+#main .home-hero h2{margin:0 0 5px;font-family:var(--hf);letter-spacing:-.035em;font-size:clamp(1.35rem,2vw,1.8rem)}
+#main .home-hero>.mu{font-size:.94rem}
+#main .home-hero .tiles{margin-top:22px;margin-bottom:0}
+#main .home-panel> b:first-child{display:block;font-family:var(--hf);font-size:1.04rem;margin-bottom:12px;color:var(--prt)}
+#main .tile{min-width:0;border-radius:16px;border-color:color-mix(in srgb,var(--pr) 18%,var(--bd));background:linear-gradient(145deg,color-mix(in srgb,var(--pr) 8%,var(--card)),color-mix(in srgb,var(--card) 94%,transparent));box-shadow:inset 0 1px 0 rgba(255,255,255,.22);transition:transform .18s,border-color .18s,box-shadow .18s}
+#main button.tile:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--pr) 48%,var(--bd));box-shadow:0 8px 20px rgba(90,58,170,.12)}
+#main .tile b{color:var(--prt);font-size:clamp(1.25rem,2vw,1.65rem);overflow-wrap:anywhere}
+#main .scard{min-width:0;border-radius:16px;border-color:color-mix(in srgb,var(--pr) 17%,var(--bd));background:linear-gradient(145deg,color-mix(in srgb,var(--card) 88%,rgba(125,85,225,.12)),color-mix(in srgb,var(--card) 96%,transparent));box-shadow:inset 0 1px 0 rgba(255,255,255,.22);transition:transform .18s,border-color .18s,box-shadow .18s}
+#main .scard:hover{transform:translateY(-2px);border-color:rgba(157,112,255,.68);box-shadow:0 10px 24px rgba(85,54,160,.13)}
+#main .scard b{color:var(--tx)}
+#main .pb{background:color-mix(in srgb,var(--pr) 12%,var(--bd));border-radius:999px;height:7px}
+#main .pb i{background:linear-gradient(90deg,#8171f4,#b08aff);border-radius:999px}
+#main .lrow{padding:12px 0;border-top:1px solid color-mix(in srgb,var(--pr) 12%,var(--bd));gap:12px}
+#main .lrow:first-of-type{border-top:0}
+#main .home-panel .row button{flex-shrink:0}
+#main .chips .chip{border-color:rgba(155,125,240,.3);background:color-mix(in srgb,var(--pr) 7%,var(--card));transition:background .15s,border-color .15s,transform .15s}
+#main .chips .chip:hover{background:color-mix(in srgb,var(--pr) 15%,var(--card));border-color:rgba(155,125,240,.65)}
+#app>aside .card{background:linear-gradient(160deg,rgba(31,28,77,.96),rgba(15,17,48,.97));border:1px solid rgba(180,155,255,.22);box-shadow:0 18px 40px rgba(10,9,40,.18),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+#app>aside button.s{transition:background .16s,color .16s,box-shadow .16s}
+#app>aside button.s.on{background:linear-gradient(100deg,rgba(135,103,245,.25),rgba(255,255,255,.08));box-shadow:inset 3px 0 0 var(--moon),inset 0 0 0 1px rgba(177,148,255,.13)}
+#app>aside button.s:hover{background:rgba(164,136,255,.14)}
+#app>aside .adm-h{color:#b7a4f5}
+header{box-shadow:0 6px 24px rgba(13,13,55,.08)}
+#board.card{padding:18px 20px}
+@media(max-width:900px){#app{grid-template-columns:210px minmax(0,1fr);gap:14px;padding:0 14px}#main .home-hero{padding:21px 20px}}
+@media(max-width:720px){#app{grid-template-columns:minmax(0,1fr);margin:14px auto;gap:12px;padding:0 12px}#app>aside{position:static;max-height:none}#app>aside .card{border-radius:18px}#main .card,#board.card{border-radius:17px;padding:16px}#main .home-hero{padding:20px 18px}#main .home-hero .tiles{gap:8px;margin-top:17px}#main .lrow{align-items:flex-start}#main .lrow>div:first-child{flex:1;min-width:0}}
+@media(max-width:420px){#main .tile{padding:10px 11px}#main .tile b{font-size:1.22rem}#main .tile span{font-size:.78rem}.scards{grid-template-columns:repeat(auto-fill,minmax(145px,1fr))}}
+@media(prefers-reduced-motion:reduce){#main .card,#main .tile,#main .scard,#app>aside button.s{transition:none}}
+
 /* layout + sidebar */
 #app{display:grid;grid-template-columns:240px 1fr;gap:20px;max-width:1120px;margin:20px auto;padding:0 16px;align-items:start}
 aside{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;border-radius:22px}
@@ -267,7 +304,6 @@ pre{background:var(--bg);padding:12px;border-radius:12px;overflow-x:auto;font-si
     <div class="moon-wrap" aria-hidden="true"><div class="moon"><div class="moon-surface"></div></div></div>
     <span class="lg-eyebrow">Lớp 11B02</span>
     <h1 class="lg-title">Lunar <span>Homework</span></h1>
-    <p class="lg-sub">Làm bài, theo dõi tiến độ và trò chuyện cùng cả lớp.</p>
   </section>
   <div class="card">
     <h2>Chào mừng bạn</h2>
@@ -1420,11 +1456,11 @@ function renderStudentHome() {
     const qs = st.vis.filter(q => q.subject === s.id), g = qs.filter(q => st.best[q.id] >= 8).length, d = qs.filter(q => st.best[q.id] != null).length;
     return `<button class="scard" onclick="openSub('${s.id}')"><b>${esc(s.name)}</b><span>${qs.length} bài${qs.length ? " · đã làm " + d : ""}</span><div class="pb"><i style="width:${qs.length ? Math.round(g / qs.length * 100) : 0}%"></i></div><small>${g}/${qs.length} bài đạt từ 8 điểm</small></button>`;
   }).join("");
-  return `<div class="card"><h2>Chào ${esc(S.user)}</h2><p class="mu" style="margin:0">Lớp 11B02. Chọn một môn bên dưới hoặc ở thanh bên trái để bắt đầu làm bài.</p>
+  return `<div class="card home-hero"><h2>Chào ${esc(S.user)}</h2><p class="mu" style="margin:0">Lớp 11B02. Chọn một môn bên dưới hoặc ở thanh bên trái để bắt đầu làm bài.</p>
     <div class="tiles t4">${tile(st.done.length + "/" + st.vis.length, "bài đã làm")}${tile(st.good.length, "bài đạt từ 8 điểm")}${tile(st.avg == null ? "–" : f1s(st.avg), "điểm trung bình")}${tile(st.tries, "lượt làm bài")}</div></div>` +
-    (drafts.length ? `<div class="card"><b>Đang làm dở</b>${drafts.map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';take('${q.id}','resume')">Tiếp tục</button></div>`)).join("")}</div>` : "") +
-    (fresh.length ? `<div class="card"><b>Bài mới chưa làm</b>${fresh.map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';pick('${q.id}')">Làm bài</button></div>`)).join("")}</div>` : "") +
-    `<div class="card"><b>Môn học</b><div class="scards">${subs || `<p class="mu">Chưa có môn học.</p>`}</div></div>` +
+    (drafts.length ? `<div class="card home-panel"><b>Đang làm dở</b>${drafts.map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';take('${q.id}','resume')">Tiếp tục</button></div>`)).join("")}</div>` : "") +
+    (fresh.length ? `<div class="card home-panel"><b>Bài mới chưa làm</b>${fresh.map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';pick('${q.id}')">Làm bài</button></div>`)).join("")}</div>` : "") +
+    `<div class="card home-panel"><b>Môn học</b><div class="scards">${subs || `<p class="mu">Chưa có môn học.</p>`}</div></div>` +
     `<p class="mu" style="margin:0 4px 14px">Trang web thuộc quyền sở hữu của lớp 11B02 do Lunar quản lý. Quyền sử dụng chỉ thuộc về lớp 11B02 và các lớp được cho phép. Hãy liên hệ lớp 11B02 nếu muốn được sử dụng.</p>`;
 }
 const sideBtn = (v, label, badge) => `<button class="s ${S.view === v ? "on" : ""}" onclick="go('${v}')"><span>${label}</span>${badge !== "" && badge != null ? `<small>${badge}</small>` : ""}</button>`;
@@ -1455,10 +1491,10 @@ function renderAdminHome() {
   const tile = (n, lab, v) => v ? `<button class="tile" onclick="go('${v}')"><b>${n}</b><span>${lab}</span></button>` : `<div class="tile"><b>${n}</b><span>${lab}</span></div>`;
   const subj = id => (S.subjects.find(s => s.id === id) || {}).name || "";
   const recent = S.quizzes.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 5);
-  return `<div class="card"><h2>Chào ${esc(S.user)} </h2><p class="mu">Tổng quan quản trị lớp 11B02.</p>${al.join("")}
+  return `<div class="card home-hero admin-hero"><h2>Chào ${esc(S.user)} </h2><p class="mu">Tổng quan quản trị lớp 11B02.</p>${al.join("")}
     <div class="tiles">${tile(S.subjects.length, "môn học")}${tile(S.quizzes.length, "bài")}${tile(RS.length, "lượt làm bài", "stats")}${tile(act, "đang làm bài", "live")}${tile(S.groups.length, "nhóm học sinh", "groups")}${tile(S.profiles.length + "/" + STUDENTS.length, "HS đã có mật khẩu", "pwlog")}</div>
     <b>Thêm bài mới vào môn</b><div class="chips" style="margin-top:8px">${S.subjects.map(s => `<button class="chip" onclick="quickAdd('${s.id}')">+ ${esc(s.name)}</button>`).join("") || `<span class="mu">Chưa có môn học.</span>`}</div></div>
-    <div class="card"><b>Bài đăng gần đây</b>${recent.length ? recent.map(q => { const n = RS.filter(r => r.quizId === q.id).length; return `<div class="row sp" style="padding:8px 0;border-top:1px solid var(--bd);margin-top:8px"><div><b>${esc(q.title)}</b>${grpBadge(q)} <small class="mu">· ${esc(subj(q.subject))} · ${n} lượt làm</small></div><button class="g" onclick="S.sub='${q.subject}';editQuiz('${q.id}')">Sửa</button></div>`; }).join("") : `<p class="mu">Chưa có bài nào. Chọn một môn ở trên để thêm bài đầu tiên.</p>`}</div>`;
+    <div class="card home-panel"><b>Bài đăng gần đây</b>${recent.length ? recent.map(q => { const n = RS.filter(r => r.quizId === q.id).length; return `<div class="row sp" style="padding:8px 0;border-top:1px solid var(--bd);margin-top:8px"><div><b>${esc(q.title)}</b>${grpBadge(q)} <small class="mu">· ${esc(subj(q.subject))} · ${n} lượt làm</small></div><button class="g" onclick="S.sub='${q.subject}';editQuiz('${q.id}')">Sửa</button></div>`; }).join("") : `<p class="mu">Chưa có bài nào. Chọn một môn ở trên để thêm bài đầu tiên.</p>`}</div>`;
 }
 document.addEventListener("click", e => document.querySelectorAll("details.more[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; }));
 
