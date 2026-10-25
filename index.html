@@ -105,6 +105,21 @@ body:has(#app:not([hidden])){background:var(--stars),radial-gradient(ellipse at 
 #main .home-hero h2{margin:0 0 5px;font-family:var(--hf);letter-spacing:-.035em;font-size:clamp(1.35rem,2vw,1.8rem)}
 #main .home-hero>.mu{font-size:.94rem}
 #main .home-hero .tiles{margin-top:22px;margin-bottom:0}
+.home-hi{margin:0 4px 2px;font:700 1.05rem var(--hf);color:var(--mu)}
+#main .next-hero{position:relative;overflow:hidden;padding:32px 34px;border:0;border-radius:26px;color:#fff;background:radial-gradient(ellipse 50% 70% at 88% 30%,rgba(124,86,240,.45),transparent 70%),linear-gradient(135deg,#0e1137,#1f2478);box-shadow:0 18px 44px rgba(19,15,55,.25)}
+#main .next-hero:hover{border-color:transparent}
+.nx-moon{position:absolute;right:-70px;top:-70px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c8,#f4bf4f 58%,#d9a032);opacity:.95;pointer-events:none}
+.nx-body{position:relative;max-width:560px;display:flex;flex-direction:column;gap:12px}
+.nx-tag{align-self:flex-start;padding:4px 12px;border-radius:999px;font-size:.8rem;font-weight:700;color:#fdf1cf;background:rgba(244,191,79,.16);border:1px solid rgba(244,191,79,.5)}
+#main .next-hero h2{margin:0;font:800 clamp(1.4rem,2.6vw,2rem)/1.15 var(--hf);letter-spacing:-.02em;color:#fff}
+.nx-sub{color:#d6daf8;font-size:.95rem}
+.nx-bar{width:min(240px,100%);height:8px;border-radius:99px;background:rgba(255,255,255,.2);overflow:hidden}.nx-bar i{display:block;height:100%;background:var(--moon)}
+button.nx-go{padding:13px 26px;background:var(--moon);color:#171a4a;font-size:1rem}
+button.nx-alt{padding:12px 20px;background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.4)}
+.stat-strip{display:flex;flex-wrap:wrap;border:1px solid var(--bd);border-radius:18px;background:var(--card);overflow:hidden}
+.stat-strip>div{flex:1 1 140px;padding:12px 18px;border-right:1px solid var(--bd)}.stat-strip>div:last-child{border-right:0}
+.stat-strip b{display:block;font:700 1.45rem var(--hf);color:var(--prt);line-height:1.2}.stat-strip span{color:var(--mu);font-size:.82rem}
+@media(max-width:720px){#main .next-hero{padding:24px 20px}.nx-moon{width:170px;height:170px;right:-50px;top:-50px}.stat-strip>div{flex-basis:45%;border-bottom:1px solid var(--bd)}}
 #main .home-panel> b:first-child{display:block;font-family:var(--hf);font-size:1.04rem;margin-bottom:12px;color:var(--prt)}
 #main .tile{min-width:0;border-radius:16px;border-color:color-mix(in srgb,var(--pr) 18%,var(--bd));background:linear-gradient(145deg,color-mix(in srgb,var(--pr) 8%,var(--card)),color-mix(in srgb,var(--card) 94%,transparent));box-shadow:inset 0 1px 0 rgba(255,255,255,.22);transition:transform .18s,border-color .18s,box-shadow .18s}
 #main button.tile:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--pr) 48%,var(--bd));box-shadow:0 8px 20px rgba(90,58,170,.12)}
@@ -1451,16 +1466,33 @@ function renderStudentHome() {
   const st = stuStats(), subjN = id => (S.subjects.find(s => s.id === id) || {}).name || "";
   const tile = (n, lab) => `<div class="tile"><b>${n}</b><span>${lab}</span></div>`;
   const drafts = st.vis.filter(q => loadDraft(q)), fresh = st.vis.filter(q => qStatus(q) === "new" && st.best[q.id] == null).slice(0, 5);
-  const rowQ = (q, btn) => `<div class="row sp lrow"><div><b>${esc(q.title)}</b><div class="mu">${esc(subjN(q.subject))} · ${nQ(q)} câu</div></div>${btn}</div>`;
+  const low = st.vis.filter(q => st.best[q.id] != null && st.best[q.id] < 8 && !loadDraft(q)).sort((a, b) => st.best[a.id] - st.best[b.id]);
+  const todo = st.vis.filter(q => st.best[q.id] == null && !loadDraft(q));
+  const rowQ = (q, btn, tag) => `<div class="row sp lrow"><div><b>${esc(q.title)}</b>${tag || ""}<div class="mu">${esc(subjN(q.subject))} · ${nQ(q)} câu${st.best[q.id] != null ? " · cao nhất " + f1s(st.best[q.id]) : ""}</div></div>${btn}</div>`;
+  // thẻ "bài nên làm tiếp": ưu tiên bài làm dở, rồi bài mới chưa làm, rồi bài chưa làm, rồi bài điểm thấp nhất
+  let nx = null;
+  if (drafts.length) {
+    const q = drafts[0], d = loadDraft(q), n = d.qs.length, dn = d.qs.filter((x, i) => x.sts.length ? x.sts.every(s => d.A[i + s.k] !== undefined) : d.A[i] !== undefined).length;
+    nx = { tag: "Bạn đang làm dở một bài", q, pct: n ? Math.round(dn / n * 100) : 0, note: `Đã trả lời ${dn}/${n} câu`, main: `<button class="nx-go" onclick="S.sub='${q.subject}';take('${q.id}','resume')">Tiếp tục làm bài</button>` };
+  } else if (fresh.length || todo.length) {
+    const q = fresh[0] || todo[0];
+    nx = { tag: fresh.length ? "Bài mới dành cho bạn" : "Bài tiếp theo", q, pct: null, note: `${nQ(q)} câu · chưa làm`, main: `<button class="nx-go" onclick="S.sub='${q.subject}';pick('${q.id}')">Làm bài ngay</button>` };
+  } else if (low.length) {
+    const q = low[0];
+    nx = { tag: "Thử lại để lên 8 điểm", q, pct: Math.round(st.best[q.id] * 10), note: `Điểm cao nhất của bạn: ${f1s(st.best[q.id])}`, main: `<button class="nx-go" onclick="S.sub='${q.subject}';pick('${q.id}')">Làm lại bài này</button>` };
+  }
+  const hero = nx
+    ? `<div class="card next-hero"><span class="nx-moon" aria-hidden="true"></span><div class="nx-body"><span class="nx-tag">${nx.tag}</span><h2>${esc(nx.q.title)}</h2><div class="nx-sub">${esc(subjN(nx.q.subject))} · ${nx.note}</div>${nx.pct != null ? `<div class="nx-bar"><i style="width:${nx.pct}%"></i></div>` : ""}<div class="row" style="margin-top:6px">${nx.main}<button class="nx-alt" onclick="S.sub='${nx.q.subject}';openSub('${nx.q.subject}')">Chọn bài khác</button></div></div></div>`
+    : `<div class="card next-hero"><span class="nx-moon" aria-hidden="true"></span><div class="nx-body"><span class="nx-tag">Tuyệt vời</span><h2>Bạn đã đạt từ 8 điểm ở mọi bài</h2><div class="nx-sub">Chọn một môn bên dưới để ôn lại bất cứ lúc nào.</div></div></div>`;
+  const strip = `<div class="stat-strip"><div><b>${st.done.length}/${st.vis.length}</b><span>bài đã làm</span></div><div><b>${st.good.length}</b><span>bài đạt từ 8 điểm</span></div><div><b>${st.avg == null ? "–" : f1s(st.avg)}</b><span>điểm trung bình</span></div><div><b>${st.tries}</b><span>lượt làm bài</span></div></div>`;
+  const rest = [...drafts.slice(1).map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';take('${q.id}','resume')">Tiếp tục</button></div>`, `<span class="bdg grp">LÀM DỞ</span>`)), ...fresh.filter(q => !nx || q.id !== nx.q.id).map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';pick('${q.id}')">Làm bài</button></div>`, `<span class="bdg new">MỚI</span>`)), ...low.filter(q => !nx || q.id !== nx.q.id).slice(0, 3).map(q => rowQ(q, `<div class="row"><button class="g" onclick="S.sub='${q.subject}';pick('${q.id}')">Làm lại</button></div>`, `<span class="bdg old">CHƯA ĐẠT 8</span>`))].slice(0, 6);
   const subs = S.subjects.map(s => {
     const qs = st.vis.filter(q => q.subject === s.id), g = qs.filter(q => st.best[q.id] >= 8).length, d = qs.filter(q => st.best[q.id] != null).length;
     return `<button class="scard" onclick="openSub('${s.id}')"><b>${esc(s.name)}</b><span>${qs.length} bài${qs.length ? " · đã làm " + d : ""}</span><div class="pb"><i style="width:${qs.length ? Math.round(g / qs.length * 100) : 0}%"></i></div><small>${g}/${qs.length} bài đạt từ 8 điểm</small></button>`;
   }).join("");
-  return `<div class="card home-hero"><h2>Chào ${esc(S.user)}</h2><p class="mu" style="margin:0">Lớp 11B02. Chọn một môn bên dưới hoặc ở thanh bên trái để bắt đầu làm bài.</p>
-    <div class="tiles t4">${tile(st.done.length + "/" + st.vis.length, "bài đã làm")}${tile(st.good.length, "bài đạt từ 8 điểm")}${tile(st.avg == null ? "–" : f1s(st.avg), "điểm trung bình")}${tile(st.tries, "lượt làm bài")}</div></div>` +
-    (drafts.length ? `<div class="card home-panel"><b>Đang làm dở</b>${drafts.map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';take('${q.id}','resume')">Tiếp tục</button></div>`)).join("")}</div>` : "") +
-    (fresh.length ? `<div class="card home-panel"><b>Bài mới chưa làm</b>${fresh.map(q => rowQ(q, `<div class="row"><button onclick="S.sub='${q.subject}';pick('${q.id}')">Làm bài</button></div>`)).join("")}</div>` : "") +
-    `<div class="card home-panel"><b>Môn học</b><div class="scards">${subs || `<p class="mu">Chưa có môn học.</p>`}</div></div>` +
+  return `<p class="home-hi">Chào ${esc(S.user)}</p>` + hero + strip +
+    (rest.length ? `<div class="card home-panel"><b>Việc nên làm tiếp</b>${rest.join("")}</div>` : "") +
+    `<div class="card home-panel"><b>Tiến độ theo môn</b><div class="scards">${subs || `<p class="mu">Chưa có môn học.</p>`}</div></div>` +
     `<p class="mu" style="margin:0 4px 14px">Trang web thuộc quyền sở hữu của lớp 11B02 do Lunar quản lý. Quyền sử dụng chỉ thuộc về lớp 11B02 và các lớp được cho phép. Hãy liên hệ lớp 11B02 nếu muốn được sử dụng.</p>`;
 }
 const sideBtn = (v, label, badge) => `<button class="s ${S.view === v ? "on" : ""}" onclick="go('${v}')"><span>${label}</span>${badge !== "" && badge != null ? `<small>${badge}</small>` : ""}</button>`;
