@@ -2040,12 +2040,12 @@ async function pdfExtract(file) {
 
 /* ---------- AI: trích câu hỏi + đáp án đã tô vàng ---------- */
 const FC_EX_SYS = "Bạn chuyển đề trắc nghiệm tiếng Việt thành JSON có cấu trúc và xác định học sinh đã chọn đáp án nào dựa vào chỗ tô vàng. Chỉ trả JSON hợp lệ, không giải thích, không dùng ```.";
-const FC_EX_USER = (text, hasImg) => `${hasImg ? "Ảnh là một trang đề (có thể do học sinh chụp hoặc scan, có thể nghiêng). Chỗ tô vàng là vùng nền vàng/neon của bút dạ quang. " : ""}${text ? "Dưới đây là phần chữ trích từ file. Phần chữ nằm giữa ⟦ và ⟧ là chỗ học sinh đã TÔ VÀNG.\n<<<\n" + text + "\n>>>\n" : ""}
+const FC_EX_USER = (text, hasImg) => `${hasImg ? "Ảnh là một trang đề (có thể do học sinh chụp hoặc scan, có thể nghiêng). Học sinh đánh dấu đáp án đã chọn bằng tô vàng (nền vàng/neon của bút dạ quang), HOẶC khoanh tròn, gạch chân, đánh dấu tích/chéo bằng bút (mọi màu mực). Coi mọi nét tô hoặc nét viết tay bao quanh/đè lên chữ cái đáp án (A, B, C, D) hay chữ Đúng/Sai là đáp án đã chọn. " : ""}${text ? "Dưới đây là phần chữ trích từ file. Phần chữ nằm giữa ⟦ và ⟧ là chỗ học sinh đã TÔ VÀNG.\n<<<\n" + text + "\n>>>\n" : ""}
 Nhiệm vụ: liệt kê TẤT CẢ câu hỏi nhìn thấy, giữ nguyên nội dung (không giải, không sửa), và ghi lại học sinh đã chọn gì (theo chỗ tô vàng).
 Trả JSON:
 {"questions":[{"n":số câu in trong đề,"type":"mcp|tf|short","stem":"đề dẫn đầy đủ","options":{"A":"...","B":"...","C":"...","D":"..."},"statements":[{"k":"a","t":"..."}],"student":null,"key_in_file":null,"unsure":false}],"note":""}
 Quy tắc:
-- mcp: có phương án A–D. student là 1 chữ cái đáp án có phần tô vàng (tô cả dòng "B. ..." hoặc chỉ chữ B đều tính). tf: các ý a) b) c) d) mỗi ý đúng/sai riêng; student là {"a":true,"b":false,...}, true nếu tô vàng chữ Đúng/Đ, false nếu tô Sai/S, ý nào không rõ thì bỏ khỏi object. short: không có A–D, student là chữ/số học sinh tô hoặc ghi, nếu không có thì null.
+- mcp: có phương án A–D. student là 1 chữ cái của đáp án có dấu đánh dấu (tô vàng, khoanh tròn, gạch chân... bao cả dòng "B. ..." hay chỉ chữ B đều tính; nét khoanh có thể che một phần chữ cái nên hãy suy ra từ vị trí và thứ tự A, B, C, D). tf: các ý a) b) c) d) mỗi ý đúng/sai riêng; student là {"a":true,"b":false,...}, true nếu tô vàng chữ Đúng/Đ, false nếu tô Sai/S, ý nào không rõ thì bỏ khỏi object. short: không có A–D, student là chữ/số học sinh tô hoặc ghi, nếu không có thì null.
 - Câu mcp tô nhiều đáp án, hoặc không thấy tô gì: student = null (tô nhiều thì unsure=true). Chỗ tô vàng ở phần đề dẫn hoặc lời giải không phải là chọn đáp án.
 - key_in_file: chỉ điền khi trong file CÓ đáp án chính thức (ví dụ bảng đáp án cuối đề, lời giải kèm theo), cùng định dạng như student. Tuyệt đối không lấy đáp án học sinh tô làm key_in_file. Không có thì null.
 - Công thức viết LaTeX trong $...$, hóa học $\\ce{H2SO4}$. Bảng số liệu chuyển thành chữ. Hình vẽ không đọc được thì ghi "[hình minh họa]" trong stem.
@@ -2084,7 +2084,7 @@ async function fcExtract(file, st) {
     if (r.imgs) info.push(`File có ${r.imgs} hình ảnh, phần hình chưa được đọc nên câu cần xem hình có thể thiếu dữ kiện.`);
   } else if (/\.pdf$/.test(name)) {
     st("Đang đọc file PDF…"); const r = await pdfExtract(file);
-    if (r.needImg) { r.pages.forEach(p => units.push({ text: p.text, img: p.img })); info.push(r.hl ? "PDF ít chữ nên AI đọc thêm bằng ảnh trang." : "Không thấy vùng tô dạng Highlight trong PDF, AI sẽ nhìn ảnh từng trang để tìm chỗ tô vàng (kém chắc hơn)."); if (r.total > FC_MAX_PAGES) info.push(`Chỉ xử lý ${FC_MAX_PAGES} trang đầu trong ${r.total} trang.`); }
+    if (r.needImg) { r.pages.forEach(p => units.push({ text: p.text, img: p.img })); info.push(r.hl ? "PDF ít chữ nên AI đọc thêm bằng ảnh trang." : "Không thấy vùng tô dạng Highlight trong PDF, AI sẽ nhìn ảnh từng trang để tìm chỗ đánh dấu (tô vàng, khoanh tròn...), kém chắc hơn file Word."); if (r.total > FC_MAX_PAGES) info.push(`Chỉ xử lý ${FC_MAX_PAGES} trang đầu trong ${r.total} trang.`); }
     else { fcSplit(r.pages.map(p => p.text).join("\n"), FC_CHUNK).forEach(t => units.push({ text: t })); info.push(`Tìm thấy ${r.hl} vùng tô vàng trong PDF.`); }
   } else if (/\.(png|jpe?g|webp)$/.test(name) || /^image\//.test(file.type)) {
     st("Đang đọc ảnh…"); units.push({ text: "", img: (await compress(file, 2400, 0.85)).split(",")[1] });
@@ -2267,7 +2267,7 @@ function renderFileChk() {
     <label class="fcdrop"><b>Bấm để chọn file .docx, .pdf hoặc ảnh</b><span class="mu">tối đa ${FC_MAX_MB} MB${S.admin ? "" : ` · còn ${Math.max(0, FC_DAILY - fcUsed())}/${FC_DAILY} lượt hôm nay`}</span><input type="file" id="fcf" accept=".docx,.pdf,image/*" hidden onchange="const f=this.files[0];this.value='';fcStart(f)"></label>
     ${fc.err ? `<p class="tag-no">${esc(fc.err)}</p>` : ""}</div>
     <div class="card"><b>Cách tô vàng để AI đọc chính xác nhất</b>
-      <ul style="margin:8px 0;padding-left:20px;line-height:1.8"><li><b>Word (.docx)</b>: bôi đen đáp án, dùng nút <i>Text Highlight Color</i> (cây bút dạ vàng). Chính xác nhất.</li><li><b>PDF</b>: mở bằng Edge, Chrome, Acrobat, Foxit hoặc app đọc PDF trên điện thoại, dùng công cụ <i>Highlight</i> tô đáp án rồi <i>lưu file</i>.</li><li><b>In ra giấy</b>: tô bằng bút dạ quang vàng rồi chụp ảnh rõ, đủ sáng, thẳng trang. Ảnh sẽ kém chắc hơn nên nhớ kiểm tra ở bước xác nhận.</li></ul>
+      <ul style="margin:8px 0;padding-left:20px;line-height:1.8"><li><b>Word (.docx)</b>: bôi đen đáp án, dùng nút <i>Text Highlight Color</i> (cây bút dạ vàng). Chính xác nhất.</li><li><b>PDF</b>: mở bằng Edge, Chrome, Acrobat, Foxit hoặc app đọc PDF trên điện thoại, dùng công cụ <i>Highlight</i> tô đáp án rồi <i>lưu file</i>.</li><li><b>Khoanh tròn bằng bút</b> (trên máy tính bảng, hoặc công cụ vẽ/bút trong trình đọc PDF): cũng dùng được, AI nhìn ảnh để nhận ra đáp án bị khoanh. Nên khoanh hơi rộng, đừng che kín chữ cái A/B/C/D.</li><li><b>In ra giấy</b>: tô bằng bút dạ quang vàng rồi chụp ảnh rõ, đủ sáng, thẳng trang. Ảnh sẽ kém chắc hơn nên nhớ kiểm tra ở bước xác nhận.</li></ul>
       <div class="mu">Mỗi câu chỉ tô một đáp án. Câu đúng/sai: tô chữ Đúng hoặc Sai cạnh từng ý. Câu trả lời ngắn: tô hoặc ghi đáp án của bạn.<br>Hình vẽ trong đề chưa được AI đọc đầy đủ, nên câu cần xem hình có thể kém chính xác. Đáp án do AI tự giải, chỉ để tham khảo.</div></div>`;
 }
 
