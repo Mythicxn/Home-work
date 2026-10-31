@@ -24,6 +24,11 @@ h1,h2,h3{font-family:var(--hf);letter-spacing:-.01em}
 h2,h3{margin:.2em 0 .5em}
 h2{font-size:1.5rem;font-weight:700}
 
+/* câu hỏi nghe */
+.aud{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.aud select{width:auto;padding:5px 12px}
+.audt{margin:4px 0 8px}.audt summary{cursor:pointer;color:var(--prt);font-weight:600}.audt div{margin-top:6px;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,var(--pr) 8%,transparent)}
+
 /* header */
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 24px;background:var(--stars),linear-gradient(100deg,#0e1137,#1f2478);color:#fff;border-bottom:2px solid rgba(244,191,79,.45)}
 body:has(#login:not([hidden])) header{background:transparent;border-color:transparent}
@@ -436,15 +441,37 @@ c) Nước là hợp chất = Đ
 d) Nước không có thể tích = S
 
 Câu 3: Nước sôi ở bao nhiêu độ C (áp suất thường)?
-Đáp án: 100`;
+Đáp án: 100
+
+--- Câu hỏi NGHE (tiếng Anh) ---
+[Nghe]
+Anna: Hi Tom, what time does the film start?
+Tom: At seven thirty. Let's meet at the cinema at seven.
+[Hết nghe]
+Câu 4: What time will they meet?
+A. 7:00
+B. 7:30
+C. 8:00
+D. 8:30
+Đáp án: A
+(Bài nghe áp dụng cho mọi câu bên dưới cho tới khi gặp [Nghe] mới hoặc [Hết nghe]. Lời thoại ghi dạng "Tên: nội dung", phần "Tên:" sẽ không được đọc. Bài ngắn có thể viết một dòng: [Nghe: It is seven o'clock.])`;
 
 function parse(text) {
   const qs = [], errors = [];
-  let cur = null, m;
+  let cur = null, m, audio = "", blk = null;
   String(text).split(/\r?\n/).forEach(raw => {
     const l = raw.trim();
     if (!l) return;
-    if ((m = l.match(/^C[âa]u\s*(\d*)\s*[:.)]\s*(.*)$/i))) { cur = { n: m[1], q: m[2], opts: [], sts: [], ans: null, raw: "" }; qs.push(cur); }
+    const isQ = l.match(/^C[âa]u\s*(\d*)\s*[:.)]\s*(.*)$/i), END = /^\[\s*(?:hết nghe|het nghe|end)\s*\]$/i;
+    if (blk) { // đang trong khối [Nghe] ... [Hết nghe]
+      if (END.test(l)) { audio = blk.join("\n"); blk = null; return; }
+      if (!isQ) { blk.push(l); return; }
+      audio = blk.join("\n"); blk = null; // quên [Hết nghe]: gặp “Câu” thì tự đóng
+    }
+    if (END.test(l)) { audio = ""; cur = null; return; }
+    if ((m = l.match(/^\[\s*(?:nghe|listen|audio)\s*:\s*(.+?)\s*\]$/i))) { audio = m[1]; cur = null; return; }
+    if (/^\[\s*(?:nghe|listen|audio)\s*\]$/i.test(l)) { blk = []; cur = null; return; }
+    if ((m = isQ)) { cur = { n: m[1], q: m[2], opts: [], sts: [], ans: null, raw: "", audio }; qs.push(cur); }
     else if (!cur) return;
     // ý đúng/sai: a) b) c) d), A. B. C. D. hoặc I. II. III. IV. kết thúc bằng "= Đ" / "= S" (đặt TRƯỚC nhánh phương án A-D)
     else if ((m = l.match(/^([a-d])[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S|s)$/)) || (m = l.match(/^([A-D]|IV|III|II|I)[.)]\s*(.*?)\s*(?:=|\|)\s*(Đ|đ|S)$/))) cur.sts.push({ k: m[1], t: m[2], v: m[3].toUpperCase() === "Đ" });
@@ -455,6 +482,7 @@ function parse(text) {
     }
     else cur.q += " " + l;
   });
+  if (blk && blk.length && !qs.length) audio = blk.join("\n");
   // chuẩn hóa
   qs.forEach(q => {
     // câu A-D có "Đáp án: X" nhưng mỗi dòng dính "= Đ/S": coi là 4 phương án trắc nghiệm
@@ -697,7 +725,7 @@ const aiMd = t => {
 const plain = t => String(t).replace(IMG_RE, "[hình minh họa - AI không xem được]");
 const qOk = (q, i) => q.sts.length ? q.sts.every(s => S.A[i + s.k] === s.v) : q.sa !== undefined ? saOk(q, S.A[i]) : S.A[i] === q.ans;
 function aiQText(q, i) {
-  const A = S.A; let t = `Câu ${i + 1}: ${plain(q.q)}\n`;
+  const A = S.A; let t = (q.audio ? `Bài nghe (bản ghi lời): ${q.audio}\n` : "") + `Câu ${i + 1}: ${plain(q.q)}\n`;
   if (q.sts.length) q.sts.forEach(s => { const a = A[i + s.k]; t += `${s.k}) ${plain(s.t)} | Đáp án đề: ${s.v ? "Đúng" : "Sai"} | HS chọn: ${a === undefined ? "bỏ trống" : a ? "Đúng" : "Sai"}\n`; });
   else if (q.sa !== undefined) t += `Câu trả lời ngắn | Đáp án đề: ${q.sa} | HS nhập: ${A[i] || "bỏ trống"}\n`;
   else { q.opts.forEach(o => t += `${o.k}. ${plain(o.t)}\n`); t += `Đáp án đề: ${q.ans} | HS chọn: ${A[i] || "bỏ trống"}\n`; }
@@ -1226,8 +1254,52 @@ function renderStats() {
       <p><b>Chưa làm bài này (${not.length}):</b> <span class="mu">${not.length ? not.map(esc).join(", ") : "Cả lớp đã làm"}</span></p></div>`;
 }
 
+/* ===================== CÂU HỎI NGHE TIẾNG ANH ===================== */
+// Bài nghe viết trong đề bằng [Nghe] ... [Hết nghe]; máy đọc bằng giọng có sẵn của trình duyệt (Web Speech API), không tốn lượt AI.
+const AUD = []; let AUD_CUR = -1, AUD_RUN = 0, AUD_RATE = 1;
+const audId = t => { let i = AUD.indexOf(t); if (i < 0) i = AUD.push(t) - 1; return i; };
+const audOk = () => "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+function audSync() { document.querySelectorAll(".audb").forEach(b => { b.textContent = +b.dataset.a === AUD_CUR ? "⏹ Dừng" : "🔊 Nghe"; }); }
+function audStop() { AUD_RUN++; AUD_CUR = -1; if (audOk()) speechSynthesis.cancel(); audSync(); }
+function audRate(v) { AUD_RATE = +v; document.querySelectorAll(".auds").forEach(x => x.value = v); }
+function audParts(t) {
+  const out = [];
+  String(t).split(/\n+/).forEach(line => {
+    line = line.trim(); if (!line) return;
+    let who = "", m = line.match(/^([A-Z][\w .'-]{0,20}):\s+(.*)$/);
+    if (m) { who = m[1].trim(); line = m[2]; }
+    line.replace(/\s+/g, " ").replace(/([.!?…]+["”')\]]*)\s+/g, "$1\u0001").split("\u0001").forEach(x => { x = x.trim(); if (/[A-Za-z0-9]/.test(x)) out.push({ who, text: x }); });
+  });
+  return out;
+}
+function audPlay(id) {
+  if (!audOk()) return alert("Trình duyệt này chưa hỗ trợ đọc thành tiếng. Hãy dùng Chrome, Edge hoặc Safari.");
+  if (AUD_CUR === id) return audStop();
+  audStop();
+  const run = ++AUD_RUN, parts = audParts(AUD[id]), spk = [], vs = speechSynthesis.getVoices().filter(v => /^en[-_]US$/i.test(v.lang));
+  AUD_CUR = id; audSync();
+  const next = i => {
+    if (run !== AUD_RUN) return;
+    if (i >= parts.length) { AUD_CUR = -1; return audSync(); }
+    const p = parts[i]; let k = spk.indexOf(p.who); if (k < 0) k = spk.push(p.who) - 1;
+    const u = new SpeechSynthesisUtterance(p.text); u.lang = "en-US"; u.rate = AUD_RATE;
+    if (p.who) { u.pitch = k % 2 ? .8 : 1.15; if (vs.length > 1) u.voice = vs[k % 2]; } // mỗi người nói một giọng khác nhau
+    u.onend = () => setTimeout(() => next(i + 1), 350);
+    u.onerror = e => { if (run === AUD_RUN && e.error !== "canceled" && e.error !== "interrupted") { AUD_CUR = -1; audSync(); } };
+    speechSynthesis.speak(u);
+  };
+  setTimeout(() => next(0), 60);
+}
+function audHtml(q, tr) {
+  if (!q.audio) return "";
+  const id = audId(q.audio);
+  return `<div class="aud"><button type="button" class="audb" data-a="${id}" onclick="audPlay(${id})">${AUD_CUR === id ? "⏹ Dừng" : "🔊 Nghe"}</button><select class="auds" aria-label="Tốc độ nghe" onchange="audRate(this.value)">${[[.8, "Chậm"], [1, "Bình thường"], [1.2, "Nhanh"]].map(([v, t]) => `<option value="${v}" ${v === AUD_RATE ? "selected" : ""}>${t}</option>`).join("")}</select></div>` +
+    (tr ? `<details class="audt"><summary>Xem bản ghi lời</summary><div>${esc(q.audio).replace(/\n/g, "<br>")}</div></details>` : "");
+}
+
 /* ===================== GIAO DIỆN ===================== */
 function go(v) {
+  audStop();
   S.view = v; renderSide(); renderMain(); window.scrollTo(0, 0); maybeNotice();
 }
 /* ===================== THÔNG BÁO KHI HỌC SINH VÀO ===================== */
@@ -1554,7 +1626,7 @@ function renderMain() {
   } else if (S.view === "take") {
     m.innerHTML = `<div class="card"><h2>${esc(S.quiz.title)}</h2><div class="mu">${S.qs.length} câu. Câu đúng/sai: chọn Đúng hoặc Sai cho từng ý a, b, c, d.${S.deadline ? ` <b>Kiểm tra ${S.lim} phút, hết giờ tự động nộp bài.</b>` : ""}</div></div>` +
       `<div class="card"><b>Bảng câu hỏi</b> <span class="mu" id="qnc"></span><div class="qn" id="qn">${S.qs.map((q, i) => `<button type="button" data-i="${i}" onclick="goQ(${i})">${i + 1}</button>`).join("")}</div></div>` +
-      S.qs.map((q, i) => `<div class="card qcard" id="qc${i}"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
+      S.qs.map((q, i) => `<div class="card qcard" id="qc${i}"><b>Câu ${i + 1}.</b> ${R(q.q)}${audHtml(q)}` +
         (q.sts.length ? q.sts.map(s => `<div class="st"><span>${s.k}) ${R(s.t)}</span><span class="tf-options"><label class="tf-choice yes"><input type="radio" name="q${i}${s.k}" value="1"> <span>Đúng</span></label><label class="tf-choice no"><input type="radio" name="q${i}${s.k}" value="0"> <span>Sai</span></label></span></div>`).join("")
           : q.sa !== undefined ? `<input type="text" class="sa" name="q${i}" placeholder="Nhập đáp án của bạn" autocomplete="off" style="margin-top:8px">`
           : q.opts.map(o => `<label class="op"><input type="radio" name="q${i}" value="${o.k}"> ${o.k}. ${R(o.t)}</label>`).join("")) + `</div>`).join("") +
@@ -1608,6 +1680,7 @@ function renderMain() {
       <div class="card fsec"><h3>2. Nội dung đề</h3>
         <div class="row" style="margin-bottom:6px">
           <label class="fbtn">Upload file .txt<input type="file" id="ef" accept=".txt,text/plain" hidden></label>
+          <label class="fbtn">🔊 Thêm bài nghe từ file .txt<input type="file" id="eau" accept=".txt,text/plain" hidden></label>
           <button type="button" class="g" onclick="$('ei').click()">Chèn ảnh &amp; cắt</button><input type="file" id="ei" accept="image/*" multiple hidden>
           <button type="button" class="g ai-btn" onclick="$('eai').click()">${AI_ICON}<span>Ảnh chụp đề → câu hỏi</span></button><input type="file" id="eai" accept="image/*" multiple hidden>
           <button type="button" class="g ai-btn" onclick="$('efi').click()">${AI_ICON}<span>Chỉ cắt hình cho đề</span></button><input type="file" id="efi" accept="image/*" multiple hidden>
@@ -1621,6 +1694,7 @@ function renderMain() {
       <details class="card"><summary><b>Cách viết đề</b> <span class="mu">(bấm để xem)</span></summary><pre>${esc(HELP)}</pre><div class="mu">Câu ABCD: có A. B. C. D. và dòng “Đáp án: X”. Câu đúng/sai: các ý a) b) c) d) (hoặc I. II. III. IV.) kết thúc bằng “= Đ” hoặc “= S”. Câu trả lời ngắn: không có A–D, chỉ ghi “Đáp án: 100” (nhiều đáp án chấp nhận thì ngăn cách bằng dấu ;, số thập phân gõ 1,5 hay 1.5 đều được). Đáp án trắc nghiệm có thể ghi chữ (C) hoặc nội dung phương án (“Đáp án: 2”, “Đáp án: Hình 3”). Chấm đúng/sai theo thang: 1 ý đúng 0,1; 2 ý 0,25; 3 ý 0,5; 4 ý 1 điểm.<br><br><b>Ảnh:</b> viết <code>[ảnh:h1]</code> vào chỗ muốn hiện ảnh (trong câu hỏi hoặc trong đáp án A/B/C/D, a/b/c/d), ví dụ <code>A. [ảnh:h2]</code>. Với file .txt: ghi sẵn <code>[ảnh:h1]</code>, <code>[ảnh:h2]</code>… trong file, upload lên rồi gắn ảnh vào từng chỗ ở mục “Ảnh trong đề”. Cũng có thể dùng link ảnh: <code>[ảnh:https://…/hinh.png]</code>.<br><br><b>Công thức:</b> viết trong dấu $...$ (kiểu LaTeX), ví dụ <code>$x^2 + 1$</code>, <code>$\\frac{a}{b}$</code>, <code>$\\sqrt{x}$</code>; dùng <code>$$...$$</code> để công thức nằm riêng một dòng.<br><br><b>Hóa học:</b> viết <code>$\\ce{2H2 + O2 -> 2H2O}$</code> hoặc <code>$\\ce{H2SO4}$</code> để hiện đúng chỉ số dưới và mũi tên. Gõ chữ thường thì <code>-&gt;</code> tự đổi thành →, <code>&lt;=&gt;</code> thành ⇌.</div></details>
       <div class="savebar"><button onclick="saveQuiz()">Lưu bài</button><button class="g" onclick="go('list')">Hủy</button></div>`;
     $("ef").onchange = e => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = () => { $("ex").value = r.result; if (!$("et").value) $("et").value = f.name.replace(/\.txt$/i, ""); prevQ(); }; r.readAsText(f, "utf-8"); } };
+    $("eau").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; const r = new FileReader(); r.onload = () => { insertAtCursor("\n[Nghe]\n" + String(r.result).trim() + "\n[Hết nghe]\n"); prevQ(); }; r.readAsText(f, "utf-8"); };
     $("ei").onchange = async e => {
       for (const f of [...e.target.files]) { const r = await cropFile(f); if (!r) continue; const id = newImgId(); S.quiz.imgs[ikey(id)] = r; insertAtCursor(`[ảnh:${id}]`); }
       e.target.value = ""; prevQ();
@@ -1651,7 +1725,7 @@ function reviewQ(q, i) {
     }).join("") + (A[i] === undefined ? `<div class="tag-no">Bạn chưa trả lời câu này.</div>` : "");
   }
   if (S.onlyWrong && ok) return "";
-  return `<div class="card q qcard ${ok ? "ok" : "bad"}" id="qc${i}"><b>Câu ${i + 1}.</b> ${R(q.q)} <span class="${ok ? "tag-ok" : "tag-no"}">${ok ? "Đúng" : "Sai"}</span>${body}${!ok && aiReady() ? aiBtnQ(i) : ""}</div>`;
+  return `<div class="card q qcard ${ok ? "ok" : "bad"}" id="qc${i}"><b>Câu ${i + 1}.</b> ${R(q.q)} <span class="${ok ? "tag-ok" : "tag-no"}">${ok ? "Đúng" : "Sai"}</span>${audHtml(q, true)}${body}${!ok && aiReady() ? aiBtnQ(i) : ""}</div>`;
 }
 
 function renderBoard() {
@@ -1727,7 +1801,7 @@ function submitQuiz(force) {
   if (S.view !== "take") return;
   const { A, miss } = readAnswers();
   if (!force && miss && !confirm(`Còn ${miss} ý/câu chưa trả lời. Vẫn nộp bài?`)) return;
-  S.A = A;
+  S.A = A; audStop();
   if (S.mode === "test" && S.deadline) { S.timeUp = !!force; S.used = Math.max(0, Math.min(S.lim * 60, Math.round((Date.now() - (S.deadline - S.lim * 60000)) / 1000))); }
   S.deadline = 0;
   const { score } = grade(S.qs, A);
@@ -1839,7 +1913,7 @@ function prevQ() {
 }
 function prevPreview(qs) {
   const d = $("epvd"); if (!d || !d.open) return;
-  $("epv").innerHTML = qs.slice(0, 3).map((q, i) => `<div style="margin:8px 0"><b>Câu ${i + 1}.</b> ${R(q.q)}` +
+  $("epv").innerHTML = qs.slice(0, 3).map((q, i) => `<div style="margin:8px 0"><b>Câu ${i + 1}.</b> ${R(q.q)}${audHtml(q, true)}` +
     (q.sts.length ? q.sts.map(x => `<div>${x.k}) ${R(x.t)} <small class="mu">= ${x.v ? "Đ" : "S"}</small></div>`).join("") : q.sa !== undefined ? `<div>Đáp án: <b>${esc(q.sa)}</b> <small class="mu">(câu trả lời ngắn)</small></div>` : q.opts.map(o => `<div>${o.k}. ${R(o.t)}${o.k === q.ans ? ` <span class="tag-ok">✓</span>` : ""}</div>`).join("")) + `</div>`).join("") || `<span class="mu">Chưa có câu nào.</span>`;
 }
 async function saveQuiz() {
