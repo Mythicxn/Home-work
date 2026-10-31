@@ -454,7 +454,7 @@ B. 7:30
 C. 8:00
 D. 8:30
 Đáp án: A
-(Bài nghe áp dụng cho mọi câu bên dưới cho tới khi gặp [Nghe] mới hoặc [Hết nghe]. Lời thoại ghi dạng "Tên: nội dung", phần "Tên:" sẽ không được đọc. Bài ngắn có thể viết một dòng: [Nghe: It is seven o'clock.])`;
+(Bài nghe áp dụng cho mọi câu bên dưới cho tới khi gặp [Nghe] mới hoặc [Hết nghe]. Lời thoại ghi dạng "Tên: nội dung", phần "Tên:" sẽ không được đọc. Máy tự đoán nam/nữ theo tên; muốn chắc chắn thì ghi Tên (nam): hoặc Tên (nữ): ở lần nói đầu tiên. Bài ngắn có thể viết một dòng: [Nghe: It is seven o'clock.])`;
 
 function parse(text) {
   const qs = [], errors = [];
@@ -1262,13 +1262,16 @@ const audOk = () => "speechSynthesis" in window && "SpeechSynthesisUtterance" in
 function audSync() { document.querySelectorAll(".audb").forEach(b => { b.textContent = +b.dataset.a === AUD_CUR ? "⏹ Dừng" : "🔊 Nghe"; }); }
 function audStop() { AUD_RUN++; AUD_CUR = -1; if (audOk()) speechSynthesis.cancel(); audSync(); }
 function audRate(v) { AUD_RATE = +v; document.querySelectorAll(".auds").forEach(x => x.value = v); }
+const AUD_F = /^(ms|mrs|miss|madam|mom|mum|mother|grandma|woman|girl|katherine|kate|katie|mai|anna|lisa|mary|linda|lan|hoa|lily|emma|sophie|jane|sara|sarah|amy|nga|huong|linh|trang)\b/i, AUD_M = /^(mr|sir|dad|father|grandpa|man|boy|kevin|tom|oliver|john|david|nam|peter|jack|mike|james|bob|minh|tuan|long|hung)\b/i;
+const audGuess = n => AUD_F.test(n) ? "f" : AUD_M.test(n) ? "m" : "";
+const audVoiceG = v => /zira|aria|jenny|samantha|karen|victoria|susan|hazel|libby|sonia|michelle|moira|tessa|fiona|allison|ava|emma|female|woman|google us english/i.test(v.name) ? "f" : /david|mark|guy|daniel|alex|fred|george|ryan|james|thomas|davis|eric|roger|tony|christopher|brian|liam|male|man/i.test(v.name) ? "m" : "";
 function audParts(t) {
   const out = [];
   String(t).split(/\n+/).forEach(line => {
     line = line.trim(); if (!line) return;
-    let who = "", m = line.match(/^([A-Z][\w .'-]{0,20}):\s+(.*)$/);
-    if (m) { who = m[1].trim(); line = m[2]; }
-    line.replace(/\s+/g, " ").replace(/([.!?…]+["”')\]]*)\s+/g, "$1\u0001").split("\u0001").forEach(x => { x = x.trim(); if (/[A-Za-z0-9]/.test(x)) out.push({ who, text: x }); });
+    let who = "", g = "", m = line.match(/^([A-Z][\w .'-]{0,20}?)\s*(?:\(\s*(nam|nữ|nu|male|female|m|f)\s*\))?:\s+(.*)$/);
+    if (m) { who = m[1].trim(); g = m[2] ? (/^(nữ|nu|female|f)$/.test(m[2]) ? "f" : "m") : ""; line = m[3]; }
+    line.replace(/\s+/g, " ").replace(/([.!?…]+["”')\]]*)\s+/g, "$1\u0001").split("\u0001").forEach(x => { x = x.trim(); if (/[A-Za-z0-9]/.test(x)) out.push({ who, g, text: x }); });
   });
   return out;
 }
@@ -1276,14 +1279,18 @@ function audPlay(id) {
   if (!audOk()) return alert("Trình duyệt này chưa hỗ trợ đọc thành tiếng. Hãy dùng Chrome, Edge hoặc Safari.");
   if (AUD_CUR === id) return audStop();
   audStop();
-  const run = ++AUD_RUN, parts = audParts(AUD[id]), spk = [], vs = speechSynthesis.getVoices().filter(v => /^en[-_]US$/i.test(v.lang));
+  const run = ++AUD_RUN, parts = audParts(AUD[id]), gs = {}, all = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)), us = all.filter(v => /^en[-_]US$/i.test(v.lang)), vs = us.length ? us : all;
+  // giới tính từng người nói: ghi rõ trong đề (nam)/(nữ) > đoán theo tên/danh xưng > người còn lại ngược giới với người đã biết
+  parts.forEach(p => { if (p.who && !(p.who in gs)) gs[p.who] = p.g || audGuess(p.who); });
+  const known = Object.values(gs).filter(Boolean); let alt = 0;
+  Object.keys(gs).forEach(w => { if (!gs[w]) gs[w] = known.includes("f") && !known.includes("m") ? "m" : known.includes("m") && !known.includes("f") ? "f" : ["f", "m"][alt++ % 2]; });
   AUD_CUR = id; audSync();
   const next = i => {
     if (run !== AUD_RUN) return;
     if (i >= parts.length) { AUD_CUR = -1; return audSync(); }
-    const p = parts[i]; let k = spk.indexOf(p.who); if (k < 0) k = spk.push(p.who) - 1;
-    const u = new SpeechSynthesisUtterance(p.text); u.lang = "en-US"; u.rate = AUD_RATE;
-    if (p.who) { u.pitch = k % 2 ? .8 : 1.15; if (vs.length > 1) u.voice = vs[k % 2]; } // mỗi người nói một giọng khác nhau
+    const p = parts[i], g = p.who ? gs[p.who] : "", u = new SpeechSynthesisUtterance(p.text);
+    u.lang = "en-US"; u.rate = AUD_RATE;
+    if (g) { const v = vs.find(x => audVoiceG(x) === g); if (v) { u.voice = v; u.lang = v.lang; } else u.pitch = g === "f" ? 1.3 : .75; }
     u.onend = () => setTimeout(() => next(i + 1), 350);
     u.onerror = e => { if (run === AUD_RUN && e.error !== "canceled" && e.error !== "interrupted") { AUD_CUR = -1; audSync(); } };
     speechSynthesis.speak(u);
